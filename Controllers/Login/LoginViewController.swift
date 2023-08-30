@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import FirebaseAuth
 
 class LoginViewController: UIViewController {
     
@@ -108,6 +109,20 @@ class LoginViewController: UIViewController {
               !email.isEmpty, !password.isEmpty, password.count >= 6 else {
             alertUserLoginError()
             return
+        }
+        
+        FirebaseAuth.Auth.auth().signIn(withEmail: email, password: password) { [weak self] authResult, error in
+            
+            guard let strongSelf = self else { return }
+            
+            guard let result = authResult, error == nil else {
+                print("loggin error: ", error)
+                return
+            }
+            
+            let user = result.user
+            strongSelf.navigationController?.dismiss(animated: true)
+            print("logged in: ", user)
         }
     }
     
