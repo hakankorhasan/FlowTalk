@@ -8,22 +8,54 @@
 import UIKit
 
 class NewConversationsViewController: UIViewController {
+    
+    private let searchBar: UISearchBar = {
+       let sb = UISearchBar()
+        sb.placeholder = "Search for users..."
+        return sb
+    }()
+    
+    private let tableView: UITableView = {
+      let tv = UITableView()
+        tv.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        return tv
+    }()
+    
+    private let noSearchResultsLabel: UILabel = {
+       let label = UILabel()
+        label.isHidden = true
+        label.text = "No results!"
+        label.textAlignment = .center
+        label.textColor = .red
+        label.font = .systemFont(ofSize: 21, weight: .medium)
+        return label
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // Do any additional setup after loading the view.
+        searchBar.delegate = self
+        view.backgroundColor = .white
+        navigationController?.navigationBar.topItem?.titleView = searchBar
+        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(dismissSelf))
+        
+        //bu ekran açılır açılmaz search bar'a tekrar dokunmaya gerek kalmadan arama yapmayı sağlar.
+        searchBar.becomeFirstResponder()
     }
     
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    @objc private func dismissSelf() {
+        dismiss(animated: true)
     }
-    */
+    
+}
 
+extension NewConversationsViewController: UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        
+    }
 }
