@@ -41,16 +41,31 @@ class ConversationsViewController: UIViewController{
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
-        tableView.frame = view.bounds
+         tableView.frame = view.bounds
     }
     
     @objc private func didTapComposeButton() {
         let vc = NewConversationsViewController()
+        vc.completion = { [weak self] result in
+            print("\(result)")
+            self?.createNewConversation(result: result)
+        }
         let navVC = UINavigationController(rootViewController: vc)
         present(navVC, animated: true)
     }
     
+    private func createNewConversation(result: [String: String]) {
+        
+        guard let name = result["name"],
+              let email = result["email"] else {
+            return
+        }
+        let vc = ChatViewController(with: email)
+        vc.isNewConversation = true
+        vc.title = name
+        vc.navigationItem.largeTitleDisplayMode = .never
+        navigationController?.pushViewController(vc, animated: true)
+    }
     
     private func fetchConversations() {
         tableView.isHidden = false
@@ -76,9 +91,7 @@ class ConversationsViewController: UIViewController{
         }
     }
 
-
 }
-
 
 extension ConversationsViewController: UITableViewDelegate, UITableViewDataSource {
     
@@ -95,7 +108,7 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        let vc = ChatViewController()
+        let vc = ChatViewController(with: "sddfd@gmail.com")
         vc.title = "David Stan"
         vc.navigationItem.largeTitleDisplayMode = .never
         navigationController?.pushViewController(vc, animated: true)
