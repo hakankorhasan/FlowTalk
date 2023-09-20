@@ -149,9 +149,6 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         let model = conversations[indexPath.row]
         
         cell.configure(with: model)
-        
-       
-        
         return cell
     }
     
@@ -163,4 +160,7 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         navigationController?.pushViewController(vc, animated: true)
     }
     
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 120
+    }
 }
