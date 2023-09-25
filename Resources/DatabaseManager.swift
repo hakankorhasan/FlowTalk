@@ -8,6 +8,7 @@
 import UIKit
 import FirebaseDatabase
 import MessageKit
+import AVFoundation
 
 class DatabaseManager {
     
@@ -402,6 +403,18 @@ extension DatabaseManager {
         }
     }
     
+    
+    func videoPreviewImage(url: URL) -> UIImage? {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        if let cgImage = try? generator.copyCGImage(at: CMTime(seconds: 2, preferredTimescale: 60), actualTime: nil) {
+            return UIImage(cgImage: cgImage)
+        }
+        else {
+            return nil
+        }
+    }
     /// Gets all messages for given conversations
     // Verilen konuşmalara ilişkin tüm mesajları alır
     public func getAllMessagesForConversation(with id: String, completion: @escaping (Result<[Message], Error>) -> Void) {
@@ -433,6 +446,20 @@ extension DatabaseManager {
                     let media = Media(url: url, image: nil, placeholderImage: placeholder, size: CGSize(width: 300, height: 300))
                     
                     kind = .photo(media)
+                }
+                else if type == "video" {
+                    guard let videoUrl = URL(string: content),
+                          let placeholder = self.videoPreviewImage(url: videoUrl) else {
+                        return nil
+                    }
+                    
+                   
+                    let media = Media(url: videoUrl,
+                                      image: nil,
+                                      placeholderImage: placeholder,
+                                      size: CGSize(width: 200, height: 200))
+                    
+                    kind = .video(media)
                 }
                 else {
                     kind = .text(content)
