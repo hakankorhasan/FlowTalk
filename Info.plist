@@ -2,13 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Please allow access to take a profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Please allow access to take profile picture.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Please allow access to send audio and video messages.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.983021958103-6sjr25jbfba11tguvlllpano1ce0knn9</string>
-                <string>fb1223031201727551</string>
+				<string>fb1223031201727551</string>
 			</array>
 		</dict>
 	</array>

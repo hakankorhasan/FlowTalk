@@ -411,17 +411,6 @@ extension DatabaseManager {
                 return
             }
             
-            /*"messages": [
-                {
-                    "id": String,
-                    "type": text,photo,video,
-                    "content": String,
-                    "date": Date(),
-                    "sender_email": String,
-                    "is_read": true/false,
-                }
-            ]*/
-            
             let messages: [Message] = value.compactMap { dictionary in
                 guard let name = dictionary["name"] as? String,
                       let content = dictionary["content"] as? String,
@@ -498,7 +487,10 @@ extension DatabaseManager {
                     message = targetUrlString
                 }
                 break
-            case .video(_):
+            case .video(let mediaItem):
+                if let targetUrlString = mediaItem.url?.absoluteString {
+                    message = targetUrlString
+                }
                 break
             case .location(_):
                 break
