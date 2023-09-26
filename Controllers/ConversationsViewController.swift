@@ -44,6 +44,8 @@ class ConversationsViewController: UIViewController{
         return label
     }()
     
+    private var loginObserver: NSObjectProtocol?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -53,6 +55,12 @@ class ConversationsViewController: UIViewController{
         setupTableView()
         fetchConversations()
         startListeningForConversations()
+        
+        loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
+            guard let strongSelf = self else { return }
+            
+            strongSelf.startListeningForConversations()
+        })
     }
     
     private func startListeningForConversations() {
@@ -60,6 +68,10 @@ class ConversationsViewController: UIViewController{
             return
         }
     
+        if let observer = loginObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        
         let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
         
         DatabaseManager.shared.getAllConversations(for: safeEmail) { [weak self] result in
@@ -161,5 +173,41 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 120
+    }
+    
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+        return .delete
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+ 
+        if editingStyle == .delete {
+            let actionSheet = UIAlertController(title: "", message: "Are you sure you want to delete messages?", preferredStyle: .alert)
+            
+            actionSheet.addAction(UIAlertAction(title: "Yes", style: .default, handler: { _ in
+                
+                let conversationId = self.conversations[indexPath.row].id
+                tableView.beginUpdates()
+                
+                DatabaseManager.shared.deleteConversation(conversationId: conversationId) { [weak self] success in
+                    if success {
+                        self?.conversations.remove(at: indexPath.row)
+                        
+                        tableView.deleteRows(at: [indexPath], with: .left)
+                        
+                    }
+                }
+                
+                
+                tableView.endUpdates()
+            }))
+            
+            actionSheet.addAction(UIAlertAction(title: "No", style: .cancel, handler: { _ in
+                 
+            }))
+            present(actionSheet, animated: true)
+        }
+        
+        
     }
 }
