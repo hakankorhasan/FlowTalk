@@ -50,7 +50,7 @@ class NewConversationsViewController: UIViewController {
         tableView.dataSource = self
         
         searchBar.delegate = self
-        view.backgroundColor = .white
+        view.backgroundColor = .systemBackground
         navigationController?.navigationBar.topItem?.titleView = searchBar
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(dismissSelf))
         

@@ -40,7 +40,7 @@ class LoginViewController: UIViewController {
         field.placeholder = "Email Address..."
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         return field
     }()
 
@@ -55,7 +55,7 @@ class LoginViewController: UIViewController {
         field.placeholder = "Password"
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 0))
         field.leftViewMode = .always
-        field.backgroundColor = .white
+        field.backgroundColor = .secondarySystemBackground
         field.isSecureTextEntry = true
         return field
     }()
@@ -89,7 +89,7 @@ class LoginViewController: UIViewController {
         super.viewDidLoad()
 
         title = "Login"
-        view.backgroundColor = .white
+        view.backgroundColor = .systemBackground
     
         loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
             guard let strongSelf = self else { return }
