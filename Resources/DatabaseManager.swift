@@ -126,48 +126,7 @@ extension DatabaseManager {
         case failedToFetch
     }
     
-    /*
-     users =>
-     
-     [
-        [
-            "name":
-            "safe_email":
-        ],
-        [
-            "name":
-            "safe_email:":
-        ]
-     ]
-     
-     "cnfchdfhfdbdf" {
-          "messages": [
-              {
-                  "id": String,
-                  "type": text,photo,video,
-                  "content": String,
-                  "date": Date(),
-                  "sender_email": String,
-                  "is_read": true/false,
-              }
-          ]
-     }
-     
-     conversation => [
-           [
-               "conversation_id": "cnfchdfhfdbdf"
-               "other_user_email":
-               "latest_message": => {
-                    "date": Date()
-                    "latest_message": "message"
-                    "is_read": true/false
-                }
-     
-           ]
-     ]
-     
-     
-     */
+   
 }
 
 /// MARK:   - Sending messages / conversations
@@ -298,19 +257,7 @@ extension DatabaseManager {
     }
     
     private func finishCreateingCOnversations(name: String, conversationID: String, firstMessage: Message, completion: @escaping (Bool) -> Void) {
-        
-      /*  "cnfchdfhfdbdf" {
-             "messages": [
-                 {
-                     "id": String,
-                     "type": text,photo,video,
-                     "content": String,
-                     "date": Date(),
-                     "sender_email": String,
-                     "is_read": true/false,
-                 }
-             ]
-        }*/
+    
         let messageDate = firstMessage.sentDate
         let dateString = ChatViewController.dateFormatter.string(from: messageDate)
         var message = ""
@@ -349,6 +296,7 @@ extension DatabaseManager {
             "id": firstMessage.messageId,
             "type": firstMessage.kind.messageKindString,
             "content": message,
+            "audioDuration": firstMessage.audioDur ?? 0.0,
             "name": name,
             "date": dateString,
             "sender_email": currentUserEmail,
@@ -432,6 +380,7 @@ extension DatabaseManager {
                       let dateString = ChatViewController.dateFormatter.date(from: date),
                       let messageId = dictionary["id"] as? String,
                       let isRead = dictionary["is_read"] as? Bool,
+                      let audioDuration = dictionary["audioDuration"] as? Float,
                       let senderEmail = dictionary["sender_email"] as? String,
                       let type = dictionary["type"] as? String else {
                     return nil
@@ -472,6 +421,18 @@ extension DatabaseManager {
                     let location = Location(location: CLLocation(latitude: latitude, longitude: longitude), size: CGSize(width: 250, height: 250))
                     
                     kind = .location(location)
+                } else if type == "audio" {
+                    
+                    guard let audioUrl = URL(string: content) else { return nil }
+                    let duration = audioDuration
+                    
+                    // Sesin süresine göre width değerini hesapla (örneğin, her saniye için belirli bir genişlik)
+                    let widthPerSecond: CGFloat = 30.0 // Örnek olarak, her saniye için 50 birim genişlik
+                    let calculatedWidth = CGFloat(duration) * widthPerSecond
+                   // print("audio dur. :", ChatViewController.audioD)
+                    let audio = Audio(url: audioUrl, duration: audioDuration, size: CGSize(width: calculatedWidth, height: 45))
+                    
+                    kind = .audio(audio)
                 }
                 else {
                     kind = .text(content)
@@ -513,6 +474,8 @@ extension DatabaseManager {
             
             //add new message
             let messageDate = newMessage.sentDate
+            let audioDur = newMessage.audioDur
+            print("auido dur: ",audioDur)
             let dateString = ChatViewController.dateFormatter.string(from: messageDate)
             var message = ""
             
@@ -537,7 +500,9 @@ extension DatabaseManager {
                 break
             case .emoji(_):
                 break
-            case .audio(_):
+            case .audio(let audioItem):
+                let audioFileURL = audioItem.url.absoluteString
+                   message = audioFileURL
                 break
             case .contact(_):
                 break
@@ -561,6 +526,7 @@ extension DatabaseManager {
                 "content": message,
                 "name": name,
                 "date": dateString,
+                "audioDuration": newMessage.audioDur ?? 0.0,
                 "sender_email": currentUserEmail,
                 "is_read": false,
             ]

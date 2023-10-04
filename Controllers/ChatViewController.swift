@@ -18,6 +18,7 @@ struct Message: MessageType {
     public var messageId: String
     public var sentDate: Date
     public var kind: MessageKind
+    public var audioDur: Float?
 }
 
 struct Sender: SenderType {
@@ -76,9 +77,18 @@ class ChatViewController: MessagesViewController {
         return formatter
     }()
     
+    var longPressGesture: UILongPressGestureRecognizer!
+    var audioFileName = ""
+    var audioDuration: Date!
+   
+    //open lazy var audioController = AudioController(messageCollectionView: messagesCollectionView)
+    open lazy var audioController = AudioController(messageCollectionView: messagesCollectionView)
+    public var isEmptyText: Bool = true
+    
     public let otherUserEmail: String
     public let conversationId: String?
     public var isNewConversation = false
+    private let inputBarForButton = InputBarAccessoryView()
     
     private var messages = [Message]()
     
@@ -98,7 +108,7 @@ class ChatViewController: MessagesViewController {
                displayName: "me",
                senderId: safeEmail)
     }
-    
+        
     init(with email: String, id: String?) {
         self.otherUserEmail = email
         self.conversationId = id
@@ -113,28 +123,125 @@ class ChatViewController: MessagesViewController {
         super.viewDidLoad()
 
         view.backgroundColor = .yellow
-        
         messagesCollectionView.messagesDataSource = self
         messagesCollectionView.messagesLayoutDelegate = self
         messagesCollectionView.messagesDisplayDelegate = self
         messagesCollectionView.messageCellDelegate = self
         messageInputBar.delegate = self
         
+        configureGestureRecognizer()
         setupInputButton()
+    }
+        
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        audioController.stopAnyOngoingPlaying()
     }
     
     private func setupInputButton() {
         let button = InputBarButtonItem()
-        button.setSize(CGSize(width: 35, height: 35), animated: true)
-        button.setImage(UIImage(systemName: "paperclip"), for: .normal)
+        button.setSize(CGSize(width: 25, height: 25), animated: true)
+        button.setImages(lightModeImage: UIImage(named: "paperclip-lightmode"), darkModeImage: UIImage(named: "paperclip-darkmode"))//setImage(UIImage(named: "paperclip"), for: .normal)
         button.onTouchUpInside { [weak self] _ in
             self?.presentInputActionSheet()
         }
         
         messageInputBar.setLeftStackViewWidthConstant(to: 36, animated: false)
         messageInputBar.setStackViewItems([button], forStack: .left, animated: false)
-        
+    
     }
+    
+    private func configureGestureRecognizer(){
+        
+        longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(recordAudio))
+        longPressGesture.minimumPressDuration = 0.5
+        longPressGesture.delaysTouchesBegan = true
+    }
+    
+    
+    @objc func recordAudio() {
+        
+        UIView.animate(withDuration: 0.2) {
+            // Butonu büyüt
+            self.messageInputBar.sendButton.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
+            self.messageInputBar.sendButton.backgroundColor = .green
+        }
+        
+        self.messageInputBar.inputTextView.isHidden = true
+        
+        switch longPressGesture.state {
+        case .began:
+          
+            audioDuration = Date()
+            audioFileName = Date().stringDate()
+            AudioRecorder.shared.startRecording(fileName: audioFileName)
+            
+            
+        case .ended:
+            UIView.animate(withDuration: 0.2) {
+                // Butonu küçült
+                self.messageInputBar.inputTextView.isHidden = false
+                self.messageInputBar.sendButton.transform = .identity
+                self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
+            }
+            
+            if fileExistsAtPath(path: audioFileName + ".m4a") {
+                guard let messageId = createMessageId(),
+                      let conversationId = conversationId,
+                      let name = title,
+                      let selfSender = selfSender else {
+                    return
+                }
+                
+                let audioD = audioDuration.interval(ofComponent: .second, from: Date())
+                print(audioD)
+                
+                // Ses dosyasının Firebase Storage'a yüklenmesi
+                if let audioData = AudioRecorder.shared.getAudioData(filename: audioFileName + ".m4a") {
+                    StorageManager.shared.uploadMessageAudio(with: audioData, fileName: audioFileName) { [weak self] result in
+                        guard let strongSelf = self else { return }
+                        
+                        switch result {
+                        case .success(let urlString):
+                            // Ses dosyası yüklendikten sonra, gönderilecek mesajı oluştur
+                            guard let url = URL(string: urlString) else {
+                                return
+                            }
+                            
+                            let media = Audio(url: url, duration: audioD, size: .zero)
+                            
+                            let message = Message(sender: selfSender,
+                                                  messageId: messageId,
+                                                  sentDate: Date(),
+                                                  kind: .audio(media), audioDur: audioD)
+                            
+                            // Mesajı gönder
+                            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message) { success in
+                                if success {
+                                    print("Sesli mesaj gönderildi")
+                                } else {
+                                    print("Sesli mesaj gönderme başarısız oldu")
+                                }
+                            }
+                            
+                        case .failure(let error):
+                            print("Sesli mesaj yükleme hatası: ", error)
+                        }
+                    }
+                }
+            } else {
+                print("Sesli mesaj dosyası bulunamadı")
+            }
+            
+            audioFileName = ""
+            
+        default:
+            break
+        }
+    }
+
+
     
     private func presentInputActionSheet() {
         let actionSheet = UIAlertController(title: "Attach Media", message: "What would you like to attach?", preferredStyle: .actionSheet)
@@ -401,49 +508,67 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
 
 extension ChatViewController: InputBarAccessoryViewDelegate {
     
+    func inputBar(_ inputBar: InputBarAccessoryView, textViewTextDidChangeTo text: String) {
+        if text.isEmpty {
+            isEmptyText = true
+        } else {
+            isEmptyText = false
+            print("dolu: ",text)
+        }
+    }
+    
     func inputBar(_ inputBar: InputBarAccessoryView, didPressSendButtonWith text: String) {
-        guard !text.replacingOccurrences(of: " ", with: "").isEmpty,
-              let selfSender = self.selfSender,
-              let messageId = createMessageId() else {
-            return
-        }
         
-        let message = Message(sender: selfSender,
-                              messageId: messageId,
-                              sentDate: Date(),
-                              kind: .text(text))
-        
-        print("sending: \(text)")
-        
-        //Send message
-        if isNewConversation {
-            // create convo in database
-            DatabaseManager.shared.createNewConversations(with: otherUserEmail, name: self.title ?? "", firstMessage: message) { [weak self] success in
-                if success {
-                    print("message send")
-                    self?.isNewConversation = false
-                }
-                else {
-                    print("failed to send")
-                }
-            }
-        }
-        else {
-            
-            guard let conversationId = conversationId,
-            let name = self.title else {
+       
+        if !isEmptyText {
+            guard !text.replacingOccurrences(of: " ", with: "").isEmpty,
+                  let selfSender = self.selfSender,
+                  let messageId = createMessageId() else {
                 return
             }
-            // append to existing conversation data
-            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: message) { success in
-                if success {
-                    print("message sent")
+            let message = Message(sender: selfSender,
+                                  messageId: messageId,
+                                  sentDate: Date(),
+                                  kind: .text(text))
+            
+            print("sending: \(text)")
+            
+            //Send message
+            if isNewConversation {
+                // create convo in database
+                DatabaseManager.shared.createNewConversations(with: otherUserEmail, name: self.title ?? "", firstMessage: message) { [weak self] success in
+                    if success {
+                        print("message send")
+                        self?.isNewConversation = false
+                    }
+                    else {
+                        print("failed to send")
+                    }
                 }
-                else {
-                    print("failed to sent")
+            }
+            else {
+                
+                guard let conversationId = conversationId,
+                let name = self.title else {
+                    return
+                }
+                // append to existing conversation data
+                DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: message) { success in
+                    if success {
+                        print("message sent")
+                    }
+                    else {
+                        print("failed to sent")
+                    }
                 }
             }
         }
+        else if isEmptyText {
+            // send to audio message
+            inputBar.sendButton.addGestureRecognizer(longPressGesture)
+        }
+        
+       
     }
     
     private func createMessageId() -> String? {
@@ -480,6 +605,12 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
     func numberOfSections(in messagesCollectionView: MessageKit.MessagesCollectionView) -> Int {
         messages.count
     }
+    
+    
+    func configureAudioCell(_ cell: AudioMessageCell, message: MessageType) {
+
+    }
+    
     
     func configureMediaMessageImageView(_ imageView: UIImageView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
         
@@ -536,10 +667,6 @@ extension ChatViewController: MessageCellDelegate {
         }
     }
     
-    func didTapAccessoryView(in cell: MessageCollectionViewCell) {
-       
-    }
-    
     func didTapMessage(in cell: MessageCollectionViewCell) {
         
         guard let indexPath = messagesCollectionView.indexPath(for: cell) else {
@@ -559,6 +686,31 @@ extension ChatViewController: MessageCellDelegate {
             
         default:
             break
+        }
+    }
+    
+    func didTapPlayButton(in cell: AudioMessageCell) {
+        guard let indexPath = messagesCollectionView.indexPath(for: cell),
+            let message = messagesCollectionView.messagesDataSource?.messageForItem(at: indexPath, in: messagesCollectionView) else {
+                print("Failed to identify message when audio cell receive tap gesture")
+                return
+        }
+        guard audioController.state != .stopped else {
+            // There is no audio sound playing - prepare to start playing for given audio message
+            audioController.playSound(for: message, in: cell)
+            return
+        }
+        if audioController.playingMessage?.messageId == message.messageId {
+            // tap occur in the current cell that is playing audio sound
+            if audioController.state == .playing {
+                audioController.pauseSound(for: message, in: cell)
+            } else {
+                audioController.resumeSound()
+            }
+        } else {
+            // tap occur in a difference cell that the one is currently playing sound. First stop currently playing and start the sound for given message
+            audioController.stopAnyOngoingPlaying()
+            audioController.playSound(for: message, in: cell)
         }
     }
 }

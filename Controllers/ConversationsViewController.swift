@@ -50,8 +50,8 @@ class ConversationsViewController: UIViewController{
         super.viewDidLoad()
         
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .compose, target: self, action: #selector(didTapComposeButton))
-        
         view.addSubview(tableView)
+        
         setupTableView()
         fetchConversations()
         startListeningForConversations()
@@ -97,7 +97,7 @@ class ConversationsViewController: UIViewController{
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-         tableView.frame = view.bounds
+        tableView.frame = view.bounds
     }
     
     @objc private func didTapComposeButton() {
@@ -166,6 +166,11 @@ class ConversationsViewController: UIViewController{
     }
     
     private func setupTableView() {
+        if traitCollection.userInterfaceStyle == .light {
+            tableView.backgroundColor = UIColor(red: 0.9590069652, green: 0.9689564109, blue: 1, alpha: 1)
+        }
+        
+        tableView.separatorStyle = .none
         tableView.delegate = self
         tableView.dataSource = self
     }
@@ -190,6 +195,14 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: ConversationTableViewCell.identifier, for: indexPath) as! ConversationTableViewCell
         
+        if traitCollection.userInterfaceStyle == .dark {
+            // Koyu modda background rengini dark gray olarak ayarla
+            cell.backgroundColor = UIColor(#colorLiteral(red: 0.1098036841, green: 0.1098041013, blue: 0.1183908954, alpha: 1))
+        } else {
+            // Parlak modda background rengini belirlediğiniz renk olarak ayarla
+            cell.backgroundColor = .white
+        }
+
         let model = conversations[indexPath.row]
         
         cell.configure(with: model)
@@ -209,7 +222,7 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 120
+        return 100
     }
     
     func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
