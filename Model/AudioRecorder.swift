@@ -5,9 +5,11 @@
 //  Created by Hakan Körhasan on 2.10.2023.
 //
 
+
 import Foundation
 import AVFoundation
-
+import Foundation
+import AVFoundation
 
 class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     
@@ -22,6 +24,7 @@ class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         
         checkForRecordPermission()
     }
+    
     
     func checkForRecordPermission() {
         
@@ -59,18 +62,6 @@ class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         }
     }
     
-    func getAudioData(filename: String) -> Data? {
-        let audioFileName = getDocumentsURL().appendingPathComponent(filename, isDirectory: false)
-
-        do {
-            let audioData = try Data(contentsOf: audioFileName)
-            return audioData
-        } catch {
-            print("Ses dosyası verisi alınamadı: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
     
     func startRecording(fileName: String) {
         
@@ -102,5 +93,3 @@ class AudioRecorder: NSObject, AVAudioRecorderDelegate {
         }
     }
 }
-
-

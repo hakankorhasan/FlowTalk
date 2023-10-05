@@ -130,6 +130,39 @@ class StorageManager {
         
     }
     
+    public func uploadAudio(_ audioFileName: String, directory: String, completion: @escaping (_ audioLink: String?) -> Void) {
+           
+        
+        
+        let storageRef = storage.child("message_audios/\(audioFileName)")
+        
+        
+           
+            if let audioData = NSData(contentsOfFile: fileInDocumentsDirectory(fileName: audioFileName)) {
+                
+               storageRef.putData(audioData as Data, metadata: nil) { metadata, error in
+                   
+                   if error != nil {
+                        print("error uploading audio \(error!.localizedDescription)")
+                        return
+                   }
+                                       
+                
+                   storageRef.downloadURL { url, error in
+                       guard let downloadUrl = url  else {
+                            completion(nil)
+                            return
+                        }
+                       print("download url: ",downloadUrl.absoluteString)
+                        completion(downloadUrl.absoluteString)
+                   }
+                   
+                }
+            }
+        
+    }
+
+    
                 
     public enum StorageErrors: Error {
         case FailedToUpload
@@ -153,6 +186,7 @@ class StorageManager {
 }
 
 func fileInDocumentsDirectory(fileName: String) -> String {
+    print("file in documenst directory: ",getDocumentsURL().appendingPathComponent(fileName).path)
     return getDocumentsURL().appendingPathComponent(fileName).path
 }
 
@@ -162,7 +196,7 @@ func getDocumentsURL() -> URL {
 
 
 func fileExistsAtPath(path: String)  -> Bool {
-    print(path)
+    print("file exits path: ", path)
     return FileManager.default.fileExists(atPath: fileInDocumentsDirectory(fileName: path))
 }
 

@@ -80,9 +80,11 @@ class ChatViewController: MessagesViewController {
     var longPressGesture: UILongPressGestureRecognizer!
     var audioFileName = ""
     var audioDuration: Date!
+    
+    open lazy var audioController = BasicAudioController(messageCollectionView: messagesCollectionView)
+        
    
     //open lazy var audioController = AudioController(messageCollectionView: messagesCollectionView)
-    open lazy var audioController = AudioController(messageCollectionView: messagesCollectionView)
     public var isEmptyText: Bool = true
     
     public let otherUserEmail: String
@@ -152,6 +154,68 @@ class ChatViewController: MessagesViewController {
     
     }
     
+    var recorder: AVAudioRecorder?
+    var player: AVAudioPlayer?
+    var timer: Timer?
+    var url:URL?
+    
+    private func startRecording(audiofilename: String) {
+        player?.stop()
+        if let recorder = self.recorder{
+            if recorder.isRecording{
+                self.recorder?.pause()
+            }
+            else{
+                self.recorder?.record()
+            }
+        }
+        else{
+            initializeRecorder(audioFile: audiofilename)
+        }
+        
+    }
+    
+    private func stopRecording() {
+        self.recorder?.stop()
+        let session = AVAudioSession.sharedInstance()
+        try! session.setActive(false)
+        self.url = self.recorder?.url
+        self.recorder = nil
+    }
+    
+    func initializeRecorder(audioFile: String) {
+        
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, options: .defaultToSpeaker)
+        let directory =  FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        var recordSetting = [AnyHashable: Any]()
+        recordSetting[AVFormatIDKey] = kAudioFormatMPEG4AAC
+        recordSetting[AVSampleRateKey] = 16000.0
+        recordSetting[AVNumberOfChannelsKey] = 1
+        if let filePath = directory.first?.appendingPathComponent(audioFile), let audioRecorder = try? AVAudioRecorder(url: filePath, settings: (recordSetting as? [String : Any] ?? [:])){
+            print(filePath)
+            
+            self.recorder = audioRecorder
+            self.recorder?.delegate = self
+            self.recorder?.isMeteringEnabled = true
+            self.recorder?.prepareToRecord()
+            self.recorder?.record()
+        }
+        //filepath is an optional URL
+        
+    }
+    
+    
+    override func viewWillAppear(_ animated: Bool) {
+        NotificationCenter.default.addObserver(self, selector: #selector(self.playerDidFinishPlaying), name: NSNotification.Name.AVPlayerItemDidPlayToEndTime, object:  player?.currentTime)
+    }
+    
+    @objc func playerDidFinishPlaying() {
+        // Your code here
+        self.player?.stop()
+    }
+    
+    
     private func configureGestureRecognizer(){
         
         longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(recordAudio))
@@ -175,10 +239,12 @@ class ChatViewController: MessagesViewController {
           
             audioDuration = Date()
             audioFileName = Date().stringDate()
-            AudioRecorder.shared.startRecording(fileName: audioFileName)
-            
-            
+           //AudioRecorder.shared.startRecording(fileName: audioFileName)
+            audioFileName = audioFileName + ".m4a"
+            startRecording(audiofilename: audioFileName)
         case .ended:
+            
+            stopRecording()
             UIView.animate(withDuration: 0.2) {
                 // Butonu küçült
                 self.messageInputBar.inputTextView.isHidden = false
@@ -186,53 +252,37 @@ class ChatViewController: MessagesViewController {
                 self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
             }
             
-            if fileExistsAtPath(path: audioFileName + ".m4a") {
                 guard let messageId = createMessageId(),
-                      let conversationId = conversationId,
-                      let name = title,
-                      let selfSender = selfSender else {
+                    let conversationId = conversationId,
+                    let name = title,
+                    let selfSender = selfSender else {
                     return
                 }
                 
                 let audioD = audioDuration.interval(ofComponent: .second, from: Date())
-                print(audioD)
-                
-                // Ses dosyasının Firebase Storage'a yüklenmesi
-                if let audioData = AudioRecorder.shared.getAudioData(filename: audioFileName + ".m4a") {
-                    StorageManager.shared.uploadMessageAudio(with: audioData, fileName: audioFileName) { [weak self] result in
-                        guard let strongSelf = self else { return }
-                        
-                        switch result {
-                        case .success(let urlString):
-                            // Ses dosyası yüklendikten sonra, gönderilecek mesajı oluştur
-                            guard let url = URL(string: urlString) else {
-                                return
-                            }
-                            
-                            let media = Audio(url: url, duration: audioD, size: .zero)
-                            
-                            let message = Message(sender: selfSender,
-                                                  messageId: messageId,
-                                                  sentDate: Date(),
-                                                  kind: .audio(media), audioDur: audioD)
-                            
-                            // Mesajı gönder
-                            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message) { success in
-                                if success {
-                                    print("Sesli mesaj gönderildi")
-                                } else {
-                                    print("Sesli mesaj gönderme başarısız oldu")
-                                }
-                            }
-                            
-                        case .failure(let error):
-                            print("Sesli mesaj yükleme hatası: ", error)
+                let fileDirectory =  "message_audios/"
+                StorageManager.shared.uploadAudio(audioFileName, directory: fileDirectory) { audioUrl in
+                   
+                    guard let url = URL(string: audioUrl ?? "") else {
+                        return
+                    }
+                    
+                    let media = Audio(url: url, duration: audioD, size: .zero)
+                                             
+                    let message = Message(sender: selfSender,
+                                        messageId: messageId,
+                                        sentDate: Date(),
+                                        kind: .audio(media), audioDur: audioD)
+                    
+                    
+                    DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: self.otherUserEmail, name: name, newMessage: message) { success in
+                        if success {
+                            print("Sesli mesaj gönderildi")
+                        } else {
+                            print("Sesli mesaj gönderme başarısız oldu")
                         }
                     }
                 }
-            } else {
-                print("Sesli mesaj dosyası bulunamadı")
-            }
             
             audioFileName = ""
             
@@ -404,6 +454,12 @@ class ChatViewController: MessagesViewController {
     }
     
 }
+
+
+extension ChatViewController: AVAudioRecorderDelegate, AVAudioPlayerDelegate{
+    
+}
+
 
 extension ChatViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
@@ -690,27 +746,27 @@ extension ChatViewController: MessageCellDelegate {
     }
     
     func didTapPlayButton(in cell: AudioMessageCell) {
-        guard let indexPath = messagesCollectionView.indexPath(for: cell),
-            let message = messagesCollectionView.messagesDataSource?.messageForItem(at: indexPath, in: messagesCollectionView) else {
-                print("Failed to identify message when audio cell receive tap gesture")
-                return
-        }
-        guard audioController.state != .stopped else {
-            // There is no audio sound playing - prepare to start playing for given audio message
-            audioController.playSound(for: message, in: cell)
-            return
-        }
-        if audioController.playingMessage?.messageId == message.messageId {
-            // tap occur in the current cell that is playing audio sound
-            if audioController.state == .playing {
-                audioController.pauseSound(for: message, in: cell)
-            } else {
-                audioController.resumeSound()
+            guard let indexPath = messagesCollectionView.indexPath(for: cell),
+                let message = messagesCollectionView.messagesDataSource?.messageForItem(at: indexPath, in: messagesCollectionView) else {
+                    print("Failed to identify message when audio cell receive tap gesture")
+                    return
             }
-        } else {
-            // tap occur in a difference cell that the one is currently playing sound. First stop currently playing and start the sound for given message
-            audioController.stopAnyOngoingPlaying()
-            audioController.playSound(for: message, in: cell)
+            guard audioController.state != .stopped else {
+                // There is no audio sound playing - prepare to start playing for given audio message
+                audioController.playSound(for: message, in: cell)
+                return
+            }
+            if audioController.playingMessage?.messageId == message.messageId {
+                // tap occur in the current cell that is playing audio sound
+                if audioController.state == .playing {
+                    audioController.pauseSound(for: message, in: cell)
+                } else {
+                    audioController.resumeSound()
+                }
+            } else {
+                // tap occur in a difference cell that the one is currently playing sound. First stop currently playing and start the sound for given message
+                audioController.stopAnyOngoingPlaying()
+                audioController.playSound(for: message, in: cell)
+            }
         }
-    }
 }
