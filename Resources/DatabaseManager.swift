@@ -427,10 +427,16 @@ extension DatabaseManager {
                     let duration = audioDuration
                     
                     // Sesin süresine göre width değerini hesapla (örneğin, her saniye için belirli bir genişlik)
-                    let widthPerSecond: CGFloat = 30.0 // Örnek olarak, her saniye için 50 birim genişlik
-                    let calculatedWidth = CGFloat(duration) * widthPerSecond
+                    let widthPerSecond: CGFloat = 20.0 // Örnek olarak, her saniye için 50 birim genişlik
+                   
+                    var calculatedWidth = CGFloat(duration) * widthPerSecond
                    // print("audio dur. :", ChatViewController.audioD)
-                    let audio = Audio(url: audioUrl, duration: audioDuration, size: CGSize(width: calculatedWidth, height: 45))
+                    if duration >= 10 {
+                        calculatedWidth = 300
+                    } else if duration <= 5 {
+                        calculatedWidth = 125
+                    }
+                    let audio = Audio(url: audioUrl, duration: audioDuration, size: CGSize(width: calculatedWidth, height: 35))
                     
                     kind = .audio(audio)
                 }

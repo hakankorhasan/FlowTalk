@@ -12,6 +12,7 @@ import SDWebImage
 import AVKit
 import AVFoundation
 import CoreLocation
+import Lottie
 
 struct Message: MessageType {
     public var sender: SenderType
@@ -91,7 +92,7 @@ class ChatViewController: MessagesViewController {
     public let conversationId: String?
     public var isNewConversation = false
     private let inputBarForButton = InputBarAccessoryView()
-    
+   
     private var messages = [Message]()
     
     //selfSender adlı bir hesaplanmış özellik (computed property) kullanır.
@@ -110,6 +111,7 @@ class ChatViewController: MessagesViewController {
                displayName: "me",
                senderId: safeEmail)
     }
+    
         
     init(with email: String, id: String?) {
         self.otherUserEmail = email
@@ -121,6 +123,8 @@ class ChatViewController: MessagesViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -130,27 +134,48 @@ class ChatViewController: MessagesViewController {
         messagesCollectionView.messagesDisplayDelegate = self
         messagesCollectionView.messageCellDelegate = self
         messageInputBar.delegate = self
+       
         
         configureGestureRecognizer()
         setupInputButton()
-    }
+        setupTrashAnimation()
         
+    }
+    
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         audioController.stopAnyOngoingPlaying()
     }
     
+    let trashButton = InputBarButtonItem()
+    let paperclipButton = InputBarButtonItem()
+    var animationView = LottieAnimationView(name: "trashJson")
+
+    private func setupTrashAnimation() {
+        // Lottie animasyonu oluşturun
+        animationView = LottieAnimationView(name: "trashJson")
+        let animationSize = CGSize(width: 40, height: 50)
+        animationView.animationSpeed = 0.5
+            animationView.frame = CGRect(x: 0, y: 0, width: animationSize.width, height: animationSize.height)
+        animationView.loopMode = .playOnce
+       
+        trashButton.setSize(CGSize(width: 40, height: 50), animated: true)// UIButton'in boyutunu ayarlayın
+        trashButton.addSubview(animationView) // Lottie animasyonunu UIButton'a ekleyin
+       
+    }
+
     private func setupInputButton() {
-        let button = InputBarButtonItem()
-        button.setSize(CGSize(width: 25, height: 25), animated: true)
-        button.setImages(lightModeImage: UIImage(named: "paperclip-lightmode"), darkModeImage: UIImage(named: "paperclip-darkmode"))//setImage(UIImage(named: "paperclip"), for: .normal)
-        button.onTouchUpInside { [weak self] _ in
+       
+        paperclipButton.setSize(CGSize(width: 25, height: 25), animated: true)
+        paperclipButton.setImages(lightModeImage: UIImage(named: "paperclip-lightmode"), darkModeImage: UIImage(named: "paperclip-darkmode"))//setImage(UIImage(named: "paperclip"), for: .normal)
+        paperclipButton.onTouchUpInside { [weak self] _ in
             self?.presentInputActionSheet()
         }
         
+        //button.addTarget(self, action: #selector(inputButtonTapped), for: .touchUpInside
         messageInputBar.setLeftStackViewWidthConstant(to: 36, animated: false)
-        messageInputBar.setStackViewItems([button], forStack: .left, animated: false)
+        messageInputBar.setStackViewItems([paperclipButton], forStack: .left, animated: false)
     
     }
     
@@ -158,6 +183,7 @@ class ChatViewController: MessagesViewController {
     var player: AVAudioPlayer?
     var timer: Timer?
     var url:URL?
+    var audioLevel: Float = 0.0
     
     private func startRecording(audiofilename: String) {
         player?.stop()
@@ -181,6 +207,8 @@ class ChatViewController: MessagesViewController {
         try! session.setActive(false)
         self.url = self.recorder?.url
         self.recorder = nil
+        timer?.invalidate()
+        timer = nil
     }
     
     func initializeRecorder(audioFile: String) {
@@ -202,9 +230,7 @@ class ChatViewController: MessagesViewController {
             self.recorder?.record()
         }
         //filepath is an optional URL
-        
     }
-    
     
     override func viewWillAppear(_ animated: Bool) {
         NotificationCenter.default.addObserver(self, selector: #selector(self.playerDidFinishPlaying), name: NSNotification.Name.AVPlayerItemDidPlayToEndTime, object:  player?.currentTime)
@@ -232,19 +258,53 @@ class ChatViewController: MessagesViewController {
             self.messageInputBar.sendButton.backgroundColor = .green
         }
         
-        self.messageInputBar.inputTextView.isHidden = true
-        
         switch longPressGesture.state {
         case .began:
-          
+            
             audioDuration = Date()
             audioFileName = Date().stringDate()
-           //AudioRecorder.shared.startRecording(fileName: audioFileName)
             audioFileName = audioFileName + ".m4a"
             startRecording(audiofilename: audioFileName)
-        case .ended:
             
+        case .changed:
+            
+        // Bu bölümde parmağın ekranın 2/3'üne doğru kaydırılıp kaydırılmadığını kontrol ediyoruz.
+            let translationX = longPressGesture.location(in: view).x
+            let screenWidth = view.frame.size.width
+            if translationX < (screenWidth - ((2.0/3.0) * screenWidth)) {
+                
+                longPressGesture.isEnabled = false
+                // Parmağın ekranın 2/3'ünden fazlasına kaydırıldıysa kaydırmayı iptal et
+                stopRecording()
+                // Butonu eski haline getir
+            UIView.animate(withDuration: 0.2) {
+                 self.messageInputBar.inputTextView.isHidden = false
+                 self.messageInputBar.sendButton.transform = .identity
+                 self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
+                }
+                
+            // Ardından ses kaydını sil
+            if !audioFileName.isEmpty {
+                longPressGesture.isEnabled = true
+                messageInputBar.setLeftStackViewWidthConstant(to: 50, animated: true)
+                messageInputBar.setStackViewItems([trashButton], forStack: .left, animated: false)
+                deleteAudioFileWithName(audioFileName)
+                animationView.play {(finished) in
+                    if finished {
+                        self.messageInputBar.setStackViewItems([self.paperclipButton], forStack: .left, animated: true)
+                        self.messageInputBar.setLeftStackViewWidthConstant(to: 36, animated: true)
+                    } else {
+                        
+                    }
+                }
+                
+                audioFileName = ""
+                }
+            }
+        case .ended:
+            longPressGesture.isEnabled = true
             stopRecording()
+            
             UIView.animate(withDuration: 0.2) {
                 // Butonu küçült
                 self.messageInputBar.inputTextView.isHidden = false
@@ -291,7 +351,18 @@ class ChatViewController: MessagesViewController {
         }
     }
 
-
+    func deleteAudioFileWithName(_ fileName: String) {
+        let fileManager = FileManager.default
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsDirectory.appendingPathComponent(fileName)
+        
+        do {
+            try fileManager.removeItem(at: fileURL)
+            print("Dosya silindi: \(fileName)")
+        } catch {
+            print("Dosya silinemedi: \(error)")
+        }
+    }
     
     private func presentInputActionSheet() {
         let actionSheet = UIAlertController(title: "Attach Media", message: "What would you like to attach?", preferredStyle: .actionSheet)
