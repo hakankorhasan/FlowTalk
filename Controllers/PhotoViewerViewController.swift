@@ -8,7 +8,7 @@
 import UIKit
 import SDWebImage
 
-class PhotoViewerViewController: UIViewController {
+final class PhotoViewerViewController: UIViewController {
 
     let imageView: UIImageView = {
        let image = UIImageView()
@@ -31,7 +31,7 @@ class PhotoViewerViewController: UIViewController {
         navigationItem.largeTitleDisplayMode = .never
   
         view.addSubview(imageView)
-        imageView.sd_setImage(with: self.url)
+        imageView.sd_setImage(with: url)
         
     }
     

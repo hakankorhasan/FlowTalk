@@ -8,6 +8,8 @@
 import UIKit
 import FirebaseStorage
 
+
+/// Allows you to get , fetch, and upload files to firebase storage
 class StorageManager {
     
     static let shared = StorageManager()
@@ -23,7 +25,11 @@ class StorageManager {
     /// Uploads picture to firebase storage and returns completion with url string to download
     public func uploadProfilePicture(with data: Data, fileName: String, completion: @escaping UploadPicturCompletion) {
         
-        storage.child("images/\(fileName)").putData(data, metadata: nil) { metadata, error in
+        storage.child("images/\(fileName)").putData(data, metadata: nil) { [weak self] metadata, error in
+            
+            guard let strongSelf = self else {
+                return
+            }
             
             guard error == nil else {
                 //failed
@@ -32,7 +38,7 @@ class StorageManager {
                 return
             }
                            
-            self.storage.child("images/\(fileName)").downloadURL { url, error in
+            strongSelf.storage.child("images/\(fileName)").downloadURL { url, error in
                 
                 guard error == nil else {
                     print("Failed to get download url")
@@ -101,43 +107,12 @@ class StorageManager {
         }
         
     }
-    
+   
     /// Upload audio that will be sent in a conversation message
-    public func uploadMessageAudio(with data: Data, fileName: String, completion: @escaping UploadPicturCompletion) {
-        
-        storage.child("message_audios/\(fileName)").putData(data, metadata: nil) { [weak self] metadata, error in
-            
-            guard error == nil else {
-                //failed
-                print("Failed to upload audio file to firebase for storage: ",error?.localizedDescription)
-                completion(.failure(StorageErrors.FailedToUpload))
-                return
-            }
-                           
-            self?.storage.child("message_audios/\(fileName)").downloadURL { url, error in
-                
-                guard error == nil else {
-                    print("Failed to get download url")
-                    completion(.failure(StorageErrors.FailedToGetDownloadUrl))
-                    return
-                }
-                
-                let urlString = url?.absoluteString
-                print("Download url returned: \(urlString)")
-                completion(.success(urlString ?? ""))
-            }
-        }
-        
-    }
-    
     public func uploadAudio(_ audioFileName: String, directory: String, completion: @escaping (_ audioLink: String?) -> Void) {
            
-        
-        
         let storageRef = storage.child("message_audios/\(audioFileName)")
         
-        
-           
             if let audioData = NSData(contentsOfFile: fileInDocumentsDirectory(fileName: audioFileName)) {
                 
                storageRef.putData(audioData as Data, metadata: nil) { metadata, error in
@@ -159,11 +134,8 @@ class StorageManager {
                    
                 }
             }
-        
     }
 
-    
-                
     public enum StorageErrors: Error {
         case FailedToUpload
         case FailedToGetDownloadUrl

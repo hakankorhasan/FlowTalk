@@ -102,8 +102,8 @@ class ConversationTableViewCell: UITableViewCell {
     }
 
     func configure(with model: Conversation) {
-        self.userMessageLabel.text = model.latestMessage.text
-        self.usernameLabel.text = model.name
+        userMessageLabel.text = model.latestMessage.text
+        usernameLabel.text = model.name
         let date = model.latestMessage.date
         
         let dateFormatter = DateFormatter()
@@ -124,11 +124,11 @@ class ConversationTableViewCell: UITableViewCell {
         let path = "images/\(model.otherUserEmail)_profile_picture.png"
         
         
-        StorageManager.shared.downloadUrl(for: path) { result in
+        StorageManager.shared.downloadUrl(for: path) { [weak self] result in
             switch result {
             case .success(let url):
                 DispatchQueue.main.async {
-                    self.userImageView.sd_setImage(with: url)
+                    self?.userImageView.sd_setImage(with: url)
                 }
             case .failure(let error):
                 print("failed to get image: ",error)

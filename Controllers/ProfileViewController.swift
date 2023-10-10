@@ -11,22 +11,11 @@ import FBSDKLoginKit
 import GoogleSignIn
 import SDWebImage
 
-enum ProfileViewModelType {
-    case info, logout
-}
-
-struct ProfileViewModel {
-    let viewModelType: ProfileViewModelType
-    let title: String
-    let handler: () -> Void
-}
-
-class ProfileViewController: UIViewController {
+final class ProfileViewController: UIViewController {
     
     @IBOutlet var tableView: UITableView!
 
     var data = [ProfileViewModel]()
-    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -49,6 +38,8 @@ class ProfileViewController: UIViewController {
                 
                 guard let strongSelf = self else { return }
                 
+                UserDefaults.standard.setValue(nil, forKey: "email")
+                UserDefaults.standard.setValue(nil, forKey: "name")
                 //logout facebook
                 FBSDKLoginKit.LoginManager().logOut()
                 
@@ -141,18 +132,3 @@ extension ProfileViewController: UITableViewDelegate, UITableViewDataSource {
     
 }
 
-class ProfileTableViewCell: UITableViewCell {
-    
-    static let identifier = "ProfileTableViewCell"
-    
-    public func setUP(with viewModel: ProfileViewModel) {
-        self.textLabel?.text = viewModel.title
-        switch viewModel.viewModelType {
-        case .info:
-            self.textLabel?.textAlignment = .left
-        case .logout:
-            self.textLabel?.textColor = .red
-            self.textLabel?.textAlignment = .center
-        }
-    }
-}

@@ -13,62 +13,11 @@ import AVKit
 import AVFoundation
 import CoreLocation
 import Lottie
-
-struct Message: MessageType {
-    public var sender: SenderType
-    public var messageId: String
-    public var sentDate: Date
-    public var kind: MessageKind
-    public var audioDur: Float?
-}
-
-struct Sender: SenderType {
-    public var photoURL: String
-    public var displayName: String
-    public var senderId: String
-}
-
-struct Media: MediaItem {
-    var url: URL?
-    var image: UIImage?
-    var placeholderImage: UIImage
-    var size: CGSize
-}
-
-struct Location: LocationItem {
-    let location: CLLocation
-    let size: CGSize
-}
-
-extension MessageKind {
-    var messageKindString: String {
-        switch self {
-        case .text(_):
-            return "text"
-        case .attributedText(_):
-            return "attributed_text"
-        case .photo(_):
-            return "photo"
-        case .video(_):
-            return "video"
-        case .location(_):
-            return "location"
-        case .emoji(_):
-            return "emoji"
-        case .audio(_):
-            return "audio"
-        case .contact(_):
-            return "contact"
-        case .linkPreview(_):
-            return "link_preview"
-        case .custom(_):
-            return "custom"
-        }
-    }
-}
-
-
-class ChatViewController: MessagesViewController {
+ 
+final class ChatViewController: MessagesViewController {
+    
+    private var senderUserPhotoURL: URL?
+    private var otherUserPhotoURL: URL?
 
     public static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -82,14 +31,14 @@ class ChatViewController: MessagesViewController {
     var audioFileName = ""
     var audioDuration: Date!
     
-    open lazy var audioController = BasicAudioController(messageCollectionView: messagesCollectionView)
+    public lazy var audioController = BasicAudioController(messageCollectionView: messagesCollectionView)
         
    
     //open lazy var audioController = AudioController(messageCollectionView: messagesCollectionView)
     public var isEmptyText: Bool = true
     
     public let otherUserEmail: String
-    public let conversationId: String?
+    public var conversationId: String?
     public var isNewConversation = false
     private let inputBarForButton = InputBarAccessoryView()
    
@@ -667,6 +616,10 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
                     if success {
                         print("message send")
                         self?.isNewConversation = false
+                        let mewConversationId = "conversation_\(message.messageId)"
+                        self?.conversationId = mewConversationId
+                        self?.listeningForMessages(id: mewConversationId, shouldScrollToBottom: true)
+                        self?.messageInputBar.inputTextView.text = nil
                     }
                     else {
                         print("failed to send")
@@ -680,8 +633,9 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
                     return
                 }
                 // append to existing conversation data
-                DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: message) { success in
+                DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: message) { [weak self] success in
                     if success {
+                        self?.messageInputBar.inputTextView.text = nil
                         print("message sent")
                     }
                     else {
@@ -756,6 +710,69 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
         }
     }
     
+    func backgroundColor(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> UIColor {
+        let sender = message.sender
+        if sender.senderId == selfSender?.senderId {
+            //mesajı gönderenin mesaj balonunun rengi
+            return .link
+        }
+        
+        // mesajı alanın mesaj balonunun rengi
+        return .secondarySystemBackground
+    }
+    
+    func configureAvatarView(_ avatarView: AvatarView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
+        
+        let sender = message.sender
+        
+        if sender.senderId == selfSender?.senderId {
+           // put avatarview sender user image
+            if let currentUserPhotoURL = self.senderUserPhotoURL {
+                avatarView.sd_setImage(with: currentUserPhotoURL)
+            } else {
+                guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+                    return
+                }
+                
+                let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+                let path = "images/\(safeEmail)_profile_picture.png"
+                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                    switch result {
+                    case .success(let url):
+                        DispatchQueue.main.async {
+                            // tekrar tekrar indirme yapmaması için böyle bir yapı kullandık
+                            self?.senderUserPhotoURL = url
+                            avatarView.sd_setImage(with: url)
+                        }
+                    case .failure(let error):
+                        print(error.localizedDescription)
+                    }
+                }
+            }
+        } else {
+            // put avatarview sender user image
+             if let otherUserPhotoURL = self.otherUserPhotoURL {
+                 avatarView.sd_setImage(with: otherUserPhotoURL)
+             } else {
+                 
+                 let email = self.otherUserEmail
+                 let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+                 let path = "images/\(safeEmail)_profile_picture.png"
+                 StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                     switch result {
+                     case .success(let url):
+                         DispatchQueue.main.async {
+                             self?.otherUserPhotoURL = url
+                             avatarView.sd_setImage(with: url)
+                         }
+                     case .failure(let error):
+                         print(error.localizedDescription)
+                     }
+                 }
+             }
+        }
+    }
+    
 }
 
 extension ChatViewController: MessageCellDelegate {
@@ -776,7 +793,7 @@ extension ChatViewController: MessageCellDelegate {
             }
             
             let vc = PhotoViewerViewController(with: imageUrl)
-            self.navigationController?.pushViewController(vc, animated: true)
+            navigationController?.pushViewController(vc, animated: true)
             
         case .video(let media):
             
@@ -809,7 +826,7 @@ extension ChatViewController: MessageCellDelegate {
             let vc = LocationPickerViewController(coordinates: coordinate)
             vc.isPickable = false
             vc.title = "Location"
-            self.navigationController?.pushViewController(vc, animated: true)
+            navigationController?.pushViewController(vc, animated: true)
             
         default:
             break

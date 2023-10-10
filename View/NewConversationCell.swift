@@ -51,16 +51,16 @@ class NewConversationCell: UITableViewCell {
     }
 
     func configure(with model: SearchResult) {
-        self.usernameLabel.text = model.name
+        usernameLabel.text = model.name
         
         let path = "images/\(model.email)_profile_picture.png"
         
         
-        StorageManager.shared.downloadUrl(for: path) { result in
+        StorageManager.shared.downloadUrl(for: path) { [weak self] result in
             switch result {
             case .success(let url):
                 DispatchQueue.main.async {
-                    self.userImageView.sd_setImage(with: url)
+                    self?.userImageView.sd_setImage(with: url)
                 }
             case .failure(let error):
                 print("failed to get image: ",error)

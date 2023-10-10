@@ -9,20 +9,8 @@ import UIKit
 import FirebaseAuth
 import JGProgressHUD
 
-struct Conversation {
-    let id: String
-    let name: String
-    let otherUserEmail: String
-    let latestMessage: LatestMessage
-}
-
-struct LatestMessage {
-    let date: String
-    let isRead: Bool
-    let text: String
-}
-
-class ConversationsViewController: UIViewController{
+/// Controller that show list of conversations
+final class ConversationsViewController: UIViewController{
     
     private let spinner = JGProgressHUD(style: .dark)
     
@@ -39,7 +27,7 @@ class ConversationsViewController: UIViewController{
        let label = UILabel()
         label.text = "No Conversations!"
         label.textAlignment = .center
-        label.textColor = .gray
+        label.textColor = .red
         label.font = .systemFont(ofSize: 21, weight: .medium)
         return label
     }()
@@ -51,9 +39,9 @@ class ConversationsViewController: UIViewController{
         
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .compose, target: self, action: #selector(didTapComposeButton))
         view.addSubview(tableView)
+        view.addSubview(noConversationsLabel)
         
         setupTableView()
-        fetchConversations()
         startListeningForConversations()
         
         loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
@@ -79,10 +67,12 @@ class ConversationsViewController: UIViewController{
             switch result {
             case .success(let conversations):
                 guard !conversations.isEmpty else {
-                    print("empty")
+                    self?.tableView.isHidden = true
+                    self?.noConversationsLabel.isHidden = false
                     return
                 }
-                
+                self?.noConversationsLabel.isHidden = true
+                self?.tableView.isHidden = false
                 self?.conversations = conversations
                 
                 DispatchQueue.main.async {
@@ -98,6 +88,8 @@ class ConversationsViewController: UIViewController{
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         tableView.frame = view.bounds
+        noConversationsLabel.frame = CGRect(x: 10, y: (view.height-20)/2, width: view
+            .width - 20, height: 100)
     }
     
     @objc private func didTapComposeButton() {
@@ -153,10 +145,6 @@ class ConversationsViewController: UIViewController{
         }
         
         
-    }
-    
-    private func fetchConversations() {
-        tableView.isHidden = false
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -234,17 +222,19 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         if editingStyle == .delete {
             let actionSheet = UIAlertController(title: "", message: "Are you sure you want to delete messages?", preferredStyle: .alert)
             
-            actionSheet.addAction(UIAlertAction(title: "Yes", style: .default, handler: { _ in
+            actionSheet.addAction(UIAlertAction(title: "Yes", style: .default, handler: { [weak self] _ in
                 
-                let conversationId = self.conversations[indexPath.row].id
+                guard let strongSelf = self else {
+                    return
+                }
+                
+                let conversationId = strongSelf.conversations[indexPath.row].id
                 tableView.beginUpdates()
-                
-                DatabaseManager.shared.deleteConversation(conversationId: conversationId) { [weak self] success in
-                    if success {
-                        self?.conversations.remove(at: indexPath.row)
-                        
-                        tableView.deleteRows(at: [indexPath], with: .left)
-                        
+                strongSelf.conversations.remove(at: indexPath.row)
+                tableView.deleteRows(at: [indexPath], with: .left)
+                DatabaseManager.shared.deleteConversation(conversationId: conversationId) {  success in
+                    if !success {
+                        print("failed to delete")
                     }
                 }
                 
