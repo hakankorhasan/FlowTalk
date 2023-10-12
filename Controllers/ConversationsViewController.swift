@@ -118,6 +118,7 @@ final class ConversationsViewController: UIViewController{
         present(navVC, animated: true)
     }
     
+    
     private func createNewConversation(result: SearchResult) {
         
         let name = result.name
@@ -139,6 +140,7 @@ final class ConversationsViewController: UIViewController{
                 let vc = ChatViewController(with: email, id: "")
                 vc.isNewConversation = true
                 vc.title = name
+                vc.navigationController?.navigationBar.prefersLargeTitles = true
                 vc.navigationItem.largeTitleDisplayMode = .never
                 strongSelf.navigationController?.pushViewController(vc, animated: true)
             }

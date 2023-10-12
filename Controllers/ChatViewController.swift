@@ -18,7 +18,18 @@ final class ChatViewController: MessagesViewController {
     
     private var senderUserPhotoURL: URL?
     private var otherUserPhotoURL: URL?
-
+    
+    private let userImageView: UIImageView = {
+       let iv = UIImageView()
+        return iv
+    }()
+    
+    private let userNameLabel: UILabel = {
+       let label = UILabel()
+        label.text = "Name"
+        return label
+    }()
+    
     public static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -32,9 +43,7 @@ final class ChatViewController: MessagesViewController {
     var audioDuration: Date!
     
     public lazy var audioController = BasicAudioController(messageCollectionView: messagesCollectionView)
-        
    
-    //open lazy var audioController = AudioController(messageCollectionView: messagesCollectionView)
     public var isEmptyText: Bool = true
     
     public let otherUserEmail: String
@@ -72,25 +81,99 @@ final class ChatViewController: MessagesViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
-    
-    
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .yellow
         messagesCollectionView.messagesDataSource = self
         messagesCollectionView.messagesLayoutDelegate = self
         messagesCollectionView.messagesDisplayDelegate = self
         messagesCollectionView.messageCellDelegate = self
         messageInputBar.delegate = self
-       
+        navigationItem.hidesBackButton = true
         
+        navBarSetupUI()
         configureGestureRecognizer()
         setupInputButton()
         setupTrashAnimation()
         
     }
     
+    private func navBarSetupUI() {
+        let backButtonItem = UIBarButtonItem(image: UIImage(systemName: "chevron.left"), style: .done, target: self, action: #selector(handleBack))
+        
+        navigationItem.leftBarButtonItem = backButtonItem
+        
+        // Yeşil online nokta görünümünü oluşturun ve özelleştirin
+        let onlineDotView = UIView()
+        onlineDotView.backgroundColor = .green
+        onlineDotView.layer.cornerRadius = 5 // 5 birimlik yarıçap, yani yuvarlak bir görünüm
+        onlineDotView.layer.masksToBounds = true // Köşeleri kesecek şekilde sınırları sınırlandır
+        onlineDotView.translatesAutoresizingMaskIntoConstraints = false
+        onlineDotView.widthAnchor.constraint(equalToConstant: 10).isActive = true // Genişlik belirle
+        onlineDotView.heightAnchor.constraint(equalToConstant: 10).isActive = true // Yükseklik belirle
+        
+        let onlineLabel = UILabel()
+        onlineLabel.text = "Online"
+        onlineLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        
+        if let otherUserPhotoURL = self.otherUserPhotoURL {
+            userImageView.sd_setImage(with: otherUserPhotoURL)
+        } else {
+            let email = self.otherUserEmail
+            let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+            let path = "images/\(safeEmail)_profile_picture.png"
+            StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                switch result {
+                case .success(let url):
+                    DispatchQueue.main.async {
+                        self?.otherUserPhotoURL = url
+                        self?.userImageView.sd_setImage(with: url)
+                    }
+                case .failure(let error):
+                    print(error.localizedDescription)
+                }
+            }
+        }
+        
+        userImageView.layer.cornerRadius = Const.ImageSizeForLargeState / 2
+        userImageView.clipsToBounds = true
+        userImageView.translatesAutoresizingMaskIntoConstraints = false
+        userImageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        userImageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        
+        userNameLabel.text = title
+        
+        let stackViewOnline = UIStackView(arrangedSubviews: [onlineDotView, onlineLabel])
+        stackViewOnline.axis = .horizontal
+        stackViewOnline.spacing = 4
+        stackViewOnline.alignment = .center
+        
+        let verticalStackView = UIStackView(arrangedSubviews: [userNameLabel, stackViewOnline])
+        verticalStackView.axis = .vertical
+        verticalStackView.spacing = 6
+        verticalStackView.alignment = .leading
+        
+        let horizontalStackView = UIStackView(arrangedSubviews: [userImageView, verticalStackView])
+        horizontalStackView.spacing = 15
+        horizontalStackView.alignment = .center
+        
+        let stackView = UIStackView(arrangedSubviews: [horizontalStackView, UIView()])
+        stackView.distribution = .fillEqually
+        stackView.alignment = .center
+       
+        // Özel bir boşluk ekleyerek backButton'un sağında 20 birimlik boşluk bırakabiliriz.
+        let spacer = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+        spacer.width = 10
+
+        navigationItem.leftBarButtonItems = [spacer, backButtonItem]
+        
+        navigationItem.titleView = stackView
+        
+    }
+    
+    @objc private func handleBack() {
+        self.navigationController?.popViewController(animated: true)
+    }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
@@ -106,11 +189,11 @@ final class ChatViewController: MessagesViewController {
         animationView = LottieAnimationView(name: "trashJson")
         let animationSize = CGSize(width: 40, height: 50)
         animationView.animationSpeed = 0.5
-            animationView.frame = CGRect(x: 0, y: 0, width: animationSize.width, height: animationSize.height)
+        animationView.frame = CGRect(x: 0, y: 0, width: animationSize.width, height: animationSize.height)
         animationView.loopMode = .playOnce
        
-        trashButton.setSize(CGSize(width: 40, height: 50), animated: true)// UIButton'in boyutunu ayarlayın
-        trashButton.addSubview(animationView) // Lottie animasyonunu UIButton'a ekleyin
+        trashButton.setSize(CGSize(width: 40, height: 50), animated: true)
+        trashButton.addSubview(animationView)
        
     }
 
@@ -192,7 +275,6 @@ final class ChatViewController: MessagesViewController {
     
     
     private func configureGestureRecognizer(){
-        
         longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(recordAudio))
         longPressGesture.minimumPressDuration = 0.5
         longPressGesture.delaysTouchesBegan = true
@@ -200,7 +282,8 @@ final class ChatViewController: MessagesViewController {
     
     
     @objc func recordAudio() {
-        
+        var translationX = 0.0
+        let screenWidth = view.frame.size.width
         UIView.animate(withDuration: 0.2) {
             // Butonu büyüt
             self.messageInputBar.sendButton.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
@@ -210,94 +293,116 @@ final class ChatViewController: MessagesViewController {
         switch longPressGesture.state {
         case .began:
             
+            messageInputBar.inputTextView.isEditable = false
+            messageInputBar.inputTextView.placeholder = "〈〈〈 Swipe left to delete"
+            messageInputBar.inputTextView.placeholderTextColor = .red
+            
             audioDuration = Date()
             audioFileName = Date().stringDate()
             audioFileName = audioFileName + ".m4a"
             startRecording(audiofilename: audioFileName)
-            
+        
         case .changed:
-            
+        
         // Bu bölümde parmağın ekranın 2/3'üne doğru kaydırılıp kaydırılmadığını kontrol ediyoruz.
-            let translationX = longPressGesture.location(in: view).x
-            let screenWidth = view.frame.size.width
+            translationX = longPressGesture.location(in: view).x
+            
+            messageInputBar.sendButton.center.x = -screenWidth + translationX
+            
             if translationX < (screenWidth - ((2.0/3.0) * screenWidth)) {
-                
-                longPressGesture.isEnabled = false
-                // Parmağın ekranın 2/3'ünden fazlasına kaydırıldıysa kaydırmayı iptal et
-                stopRecording()
-                // Butonu eski haline getir
-            UIView.animate(withDuration: 0.2) {
-                 self.messageInputBar.inputTextView.isHidden = false
-                 self.messageInputBar.sendButton.transform = .identity
-                 self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
-                }
-                
-            // Ardından ses kaydını sil
-            if !audioFileName.isEmpty {
-                longPressGesture.isEnabled = true
-                messageInputBar.setLeftStackViewWidthConstant(to: 50, animated: true)
-                messageInputBar.setStackViewItems([trashButton], forStack: .left, animated: false)
-                deleteAudioFileWithName(audioFileName)
-                animationView.play {(finished) in
-                    if finished {
-                        self.messageInputBar.setStackViewItems([self.paperclipButton], forStack: .left, animated: true)
-                        self.messageInputBar.setLeftStackViewWidthConstant(to: 36, animated: true)
-                    } else {
-                        
-                    }
-                }
-                
-                audioFileName = ""
-                }
+                handleSwipeGesture()
             }
+            
         case .ended:
-            longPressGesture.isEnabled = true
-            stopRecording()
-            
-            UIView.animate(withDuration: 0.2) {
-                // Butonu küçült
-                self.messageInputBar.inputTextView.isHidden = false
-                self.messageInputBar.sendButton.transform = .identity
-                self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
-            }
-            
-                guard let messageId = createMessageId(),
-                    let conversationId = conversationId,
-                    let name = title,
-                    let selfSender = selfSender else {
-                    return
+            if translationX > (screenWidth - ((2.0/3.0) * screenWidth)) {
+                handleSwipeGesture()
+            } else {
+                longPressGesture.isEnabled = false
+                
+                stopRecording()
+                
+                UIView.animate(withDuration: 0.2) {
+                    // Butonu küçült
+                    self.messageInputBar.inputTextView.placeholder = " "
+                    self.messageInputBar.inputTextView.isEditable = true
+                    self.messageInputBar.inputTextView.isHidden = false
+                    self.messageInputBar.sendButton.transform = .identity
+                    self.messageInputBar.sendButton.frame.origin.x = 0
+                    self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
                 }
                 
-                let audioD = audioDuration.interval(ofComponent: .second, from: Date())
-                let fileDirectory =  "message_audios/"
-                StorageManager.shared.uploadAudio(audioFileName, directory: fileDirectory) { audioUrl in
-                   
-                    guard let url = URL(string: audioUrl ?? "") else {
+                    guard let messageId = createMessageId(),
+                        let conversationId = conversationId,
+                        let name = title,
+                        let selfSender = selfSender else {
                         return
                     }
                     
-                    let media = Audio(url: url, duration: audioD, size: .zero)
-                                             
-                    let message = Message(sender: selfSender,
-                                        messageId: messageId,
-                                        sentDate: Date(),
-                                        kind: .audio(media), audioDur: audioD)
-                    
-                    
-                    DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: self.otherUserEmail, name: name, newMessage: message) { success in
-                        if success {
-                            print("Sesli mesaj gönderildi")
-                        } else {
-                            print("Sesli mesaj gönderme başarısız oldu")
+                    let audioD = audioDuration.interval(ofComponent: .second, from: Date())
+                    let fileDirectory =  "message_audios/"
+                    StorageManager.shared.uploadAudio(audioFileName, directory: fileDirectory) { audioUrl in
+                       
+                        guard let url = URL(string: audioUrl ?? "") else {
+                            return
+                        }
+                        
+                        let media = Audio(url: url, duration: audioD, size: .zero)
+                                                 
+                        let message = Message(sender: selfSender,
+                                            messageId: messageId,
+                                            sentDate: Date(),
+                                            kind: .audio(media), audioDur: audioD)
+                        
+                        
+                        DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: self.otherUserEmail, name: name, newMessage: message) { success in
+                            if success {
+                                print("Sesli mesaj gönderildi")
+                            } else {
+                                print("Sesli mesaj gönderme başarısız oldu")
+                            }
                         }
                     }
-                }
-            
-            audioFileName = ""
+                
+                audioFileName = ""
+                longPressGesture.isEnabled = true
+            }
             
         default:
             break
         }
+    }
+    
+    func handleSwipeGesture() {
+        
+        stopRecording()
+        longPressGesture.isEnabled = false
+        
+        messageInputBar.setLeftStackViewWidthConstant(to: 50, animated: true)
+        messageInputBar.setStackViewItems([trashButton], forStack: .left, animated: false)
+        animationView.play {(finished) in
+            if finished {
+                self.messageInputBar.setStackViewItems([self.paperclipButton], forStack: .left, animated: true)
+                self.messageInputBar.setLeftStackViewWidthConstant(to: 36, animated: true)
+            }
+        }
+        // Butonu eski haline getir
+        UIView.animate(withDuration: 0.2) {
+            // self.messageInputBar.inputTextView.isHidden = false
+            self.messageInputBar.sendButton.backgroundColor = UIColor(#colorLiteral(red: 0.8045918345, green: 0.8646553159, blue: 0.9917096496, alpha: 1))
+            self.messageInputBar.inputTextView.placeholder = " "
+            self.messageInputBar.sendButton.transform = .identity
+            self.messageInputBar.inputTextView.placeholderTextColor = .clear
+            self.messageInputBar.inputTextView.isEditable = true
+        }
+        
+        // Ardından ses kaydını sil
+        if !audioFileName.isEmpty {
+            longPressGesture.isEnabled = true
+            deleteAudioFileWithName(audioFileName)
+            audioFileName = ""
+        }
+        
+        
     }
 
     func deleteAudioFileWithName(_ fileName: String) {
@@ -314,27 +419,40 @@ final class ChatViewController: MessagesViewController {
     }
     
     private func presentInputActionSheet() {
+        
+       
+        
         let actionSheet = UIAlertController(title: "Attach Media", message: "What would you like to attach?", preferredStyle: .actionSheet)
         
-        actionSheet.addAction(UIAlertAction(title: "Photo", style: .default, handler: { [weak self] _ in
+        let photoAction = UIAlertAction(title: "Photo", style: .default) { [weak self] _ in
             self?.presentPhotoInputActionsSheet()
-        }))
+        }
+        let image = UIImage(systemName: "photo.on.rectangle.angled")
+        photoAction.setValue(image, forKey: "image")
+        photoAction.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(photoAction)
         
-        actionSheet.addAction(UIAlertAction(title: "Video", style: .default, handler: { [weak self] _ in
+        let videoAction = UIAlertAction(title: "Video", style: .default) { [weak self] _ in
             self?.presentVideoInputActionsSheet()
-        }))
+        }
+        let videoImage = UIImage(systemName: "video")
+        videoAction.setValue(videoImage, forKey: "image")
+        videoAction.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(videoAction)
         
-        actionSheet.addAction(UIAlertAction(title: "Audio", style: .default, handler: { _ in
-            
-        }))
-        
-        actionSheet.addAction(UIAlertAction(title: "Location", style: .default, handler: { [weak self] _ in
+        let locationAction = UIAlertAction(title: "Location", style: .default) { [weak self] _ in
             self?.presentLocationPicker()
-        }))
+        }
+        let locationImage = UIImage(systemName: "mappin.and.ellipse")
+        locationAction.setValue(locationImage, forKey: "image")
+        locationAction.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(locationAction)
         
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { _ in
-            
-        }))
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let cancelImage = UIImage(systemName: "xmark")
+        cancelAction.setValue(cancelImage, forKey: "image")
+        cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
+        actionSheet.addAction(cancelAction)
         
         present(actionSheet, animated: true)
     }
@@ -382,37 +500,43 @@ final class ChatViewController: MessagesViewController {
     private func presentPhotoInputActionsSheet() {
         let actionSheet = UIAlertController(title: "Attach Photo", message: "Where would you like to attach photo from?", preferredStyle: .actionSheet)
         
-        actionSheet.addAction(UIAlertAction(title: "Camera", style: .default, handler: { [weak self] _ in
-             
+        let cameraAction = UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
             let picker = UIImagePickerController()
             picker.sourceType = .camera
             picker.delegate = self
             picker.allowsEditing = true
             self?.present(picker, animated: true)
-            
-        }))
+        }
+        let camImage = UIImage(systemName: "camera.viewfinder")
+        cameraAction.setValue(camImage, forKey: "image")
+        cameraAction.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(cameraAction)
         
-        actionSheet.addAction(UIAlertAction(title: "Photo Library", style: .default, handler: { [weak self] _ in
-            
+        let photoLibrAction = UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
             let picker = UIImagePickerController()
             picker.sourceType = .photoLibrary
             picker.delegate = self
             picker.allowsEditing = true
             self?.present(picker, animated: true)
-            
-        }))
+        }
+        let photoLibrImg = UIImage(systemName: "photo.stack")
+        photoLibrAction.setValue(photoLibrImg, forKey: "image")
+        photoLibrAction.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(photoLibrAction)
         
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { _ in
-            
-        }))
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let cancelImage = UIImage(systemName: "xmark")
+        cancelAction.setValue(cancelImage, forKey: "image")
+        cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
+        actionSheet.addAction(cancelAction)
         
         present(actionSheet, animated: true)
     }
+    
     private func presentVideoInputActionsSheet() {
         let actionSheet = UIAlertController(title: "Attach Video", message: "Where would you like to attach a video from?", preferredStyle: .actionSheet)
         
-        actionSheet.addAction(UIAlertAction(title: "Camera", style: .default, handler: { [weak self] _ in
-             
+        let cameraAct = UIAlertAction(title: "Camera", style: .default) { [weak self] _ in
             let picker = UIImagePickerController()
             picker.sourceType = .camera
             picker.mediaTypes = ["public.movie"]
@@ -421,10 +545,13 @@ final class ChatViewController: MessagesViewController {
             picker.allowsEditing = true
             self?.present(picker, animated: true)
             
-        }))
+        }
+        let videoCamImg = UIImage(systemName: "camera.viewfinder")
+        cameraAct.setValue(videoCamImg, forKey: "image")
+        cameraAct.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(cameraAct)
         
-        actionSheet.addAction(UIAlertAction(title: "Library", style: .default, handler: { [weak self] _ in
-            
+        let libraryVideoAction = UIAlertAction(title: "Library", style: .default) { [weak self] _ in
             let picker = UIImagePickerController()
             picker.sourceType = .photoLibrary
             picker.mediaTypes = ["public.movie"]
@@ -432,12 +559,17 @@ final class ChatViewController: MessagesViewController {
             picker.delegate = self
             picker.allowsEditing = true
             self?.present(picker, animated: true)
-            
-        }))
+        }
+        let videoLibraryImg = UIImage(systemName: "photo.stack")
+        libraryVideoAction.setValue(videoLibraryImg, forKey: "image")
+        libraryVideoAction.setValue(UIColor.black, forKey: "titleTextColor")
+        actionSheet.addAction(libraryVideoAction)
         
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { _ in
-            
-        }))
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let cancelImage = UIImage(systemName: "xmark")
+        cancelAction.setValue(cancelImage, forKey: "image")
+        cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
+        actionSheet.addAction(cancelAction)
         
         present(actionSheet, animated: true)
     }
@@ -467,6 +599,9 @@ final class ChatViewController: MessagesViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         // bu sayfaya gelirken klavyenin direkt olarak açılmasını sağlar.
+        let height: CGFloat = 100 //whatever height you want to add to the existing height
+            let bounds = self.navigationController!.navigationBar.bounds
+            self.navigationController?.navigationBar.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height + height)
         messageInputBar.inputTextView.becomeFirstResponder()
         if let conversationId = conversationId {
             listeningForMessages(id: conversationId, shouldScrollToBottom: true)
@@ -689,7 +824,8 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
     
     
     func configureAudioCell(_ cell: AudioMessageCell, message: MessageType) {
-
+        cell.progressView.trackTintColor = .darkGray
+        cell.progressView.progressTintColor = .white
     }
     
     
