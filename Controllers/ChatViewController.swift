@@ -11,6 +11,7 @@ import InputBarAccessoryView
 import SDWebImage
 import AVKit
 import AVFoundation
+import FirebaseDatabase
 import CoreLocation
 import Lottie
  
@@ -81,6 +82,8 @@ final class ChatViewController: MessagesViewController {
         fatalError("init(coder:) has not been implemented")
     }
     
+    private var onlineStatusTimer: Timer?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -90,13 +93,56 @@ final class ChatViewController: MessagesViewController {
         messagesCollectionView.messageCellDelegate = self
         messageInputBar.delegate = self
         navigationItem.hidesBackButton = true
+        setupOnlineState()
+        onlineStatusTimer = Timer.scheduledTimer(timeInterval: 10, target: self, selector: #selector(setupOnlineState), userInfo: nil, repeats: true)
+        
         
         navBarSetupUI()
         configureGestureRecognizer()
         setupInputButton()
         setupTrashAnimation()
+        //setupOnlineState()
         
     }
+    
+    
+    @objc func setupOnlineState() {
+        let usersRef = Database.database().reference().child("users")
+        
+        let otherUserEm = self.otherUserEmail
+        let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEm)
+        
+        usersRef.observe(.childAdded) { (snapshot) in
+            if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String {
+                if email == self.otherUserEmail {
+                    if let isOnline = userData["isOnline"] as? Bool {
+                        if isOnline {
+                            UIView.animate(withDuration: 0.2) {
+                                self.onlineDotView.backgroundColor = .green
+                            }
+                        } else {
+                            UIView.animate(withDuration: 0.2) {
+                                self.onlineDotView.backgroundColor = .lightGray
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        
+    }
+    
+    deinit {
+            // Zamanlayıcıyı ve Firebase gözlemini temizle
+            onlineStatusTimer?.invalidate()
+    }
+    
+    private let onlineDotView: UIView = {
+       let dotView = UIView()
+        dotView.backgroundColor = .darkGray
+        return dotView
+    }()
     
     private func navBarSetupUI() {
         let backButtonItem = UIBarButtonItem(image: UIImage(systemName: "chevron.left"), style: .done, target: self, action: #selector(handleBack))
@@ -104,8 +150,7 @@ final class ChatViewController: MessagesViewController {
         navigationItem.leftBarButtonItem = backButtonItem
         
         // Yeşil online nokta görünümünü oluşturun ve özelleştirin
-        let onlineDotView = UIView()
-        onlineDotView.backgroundColor = .green
+        //onlineDotView.backgroundColor = .green
         onlineDotView.layer.cornerRadius = 5 // 5 birimlik yarıçap, yani yuvarlak bir görünüm
         onlineDotView.layer.masksToBounds = true // Köşeleri kesecek şekilde sınırları sınırlandır
         onlineDotView.translatesAutoresizingMaskIntoConstraints = false
@@ -575,6 +620,7 @@ final class ChatViewController: MessagesViewController {
     }
     
     func listeningForMessages(id: String, shouldScrollToBottom: Bool) {
+        //setupOnlineState()
         DatabaseManager.shared.getAllMessagesForConversation(with: id) { [weak self] result in
             switch result {
             case .success(let messages):

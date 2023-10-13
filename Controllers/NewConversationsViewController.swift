@@ -14,7 +14,7 @@ final class NewConversationsViewController: UIViewController {
     
     private let spinner = JGProgressHUD(style: .dark)
     
-    private var users = [[String: String]]()
+    private var users = [[String: Any]]()
     private var results = [SearchResult]()
     private var hasFetched = false
     
@@ -164,27 +164,27 @@ extension NewConversationsViewController: UISearchBarDelegate {
         
         let results: [SearchResult] = users.filter {
             
-            guard let email = $0["email"],
-                  email != safeEmail else {
+            guard let email = $0["email"] as? String, email != safeEmail else {
+                return false
+            }
+
+            guard let name = $0["name"] as? String, let isOnline = $0["isOnline"] as? Bool else {
                 return false
             }
             
-            guard let name = $0["name"]?.lowercased() else {return false}
+            guard let isOnline = $0["isOnline"] else { return false }
             
-           // guard let isOnline = $0["isOnline"] else { return false }
-            
-            return name.hasPrefix(term.lowercased())
+            return name.lowercased().hasPrefix(term.lowercased())
         }.compactMap {
             
-            guard let email = $0["email"],
-                  email != safeEmail,
-                  let name = $0["name"]?.lowercased() else {
+            guard let email = $0["email"] as? String, email != safeEmail,
+                  let name = $0["name"] as? String,
+                  let isOnline = $0["isOnline"] as? Bool else {
                 return nil
             }
-            
             //let isOnlineString = isOnline ? "true" : "false"
            // let isOnlineBool = isOnline.lowercased() == "true"
-            return SearchResult(name: name, email: email)
+            return SearchResult(name: name, email: email, isOnline: isOnline)
         }
         self.results = results
         

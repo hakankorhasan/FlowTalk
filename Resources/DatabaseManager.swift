@@ -128,10 +128,10 @@ extension DatabaseManager {
     }
     
     /// Gets all users from database
-    public func getAllUsers(completion: @escaping (Result<[[String: String]], Error>) -> Void) {
+    public func getAllUsers(completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
         database.child("users").observeSingleEvent(of: .value) { snapshot in
             
-            guard let value = snapshot.value as? [[String: String]] else  {
+            guard let value = snapshot.value as? [[String: Any]] else  {
                 completion(.failure(DatabaseError.failedToFetch))
                 return
             }
@@ -715,6 +715,7 @@ extension DatabaseManager {
         guard let senderEmail = UserDefaults.standard.value(forKey: "email") as? String else {
             return
         }
+        
         
         let safeSenderEmail = DatabaseManager.safeEmail(emaildAddress: senderEmail)
         
