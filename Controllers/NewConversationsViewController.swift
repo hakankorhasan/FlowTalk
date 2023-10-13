@@ -171,9 +171,10 @@ extension NewConversationsViewController: UISearchBarDelegate {
             
             guard let name = $0["name"]?.lowercased() else {return false}
             
+           // guard let isOnline = $0["isOnline"] else { return false }
+            
             return name.hasPrefix(term.lowercased())
         }.compactMap {
-            
             
             guard let email = $0["email"],
                   email != safeEmail,
@@ -181,6 +182,8 @@ extension NewConversationsViewController: UISearchBarDelegate {
                 return nil
             }
             
+            //let isOnlineString = isOnline ? "true" : "false"
+           // let isOnlineBool = isOnline.lowercased() == "true"
             return SearchResult(name: name, email: email)
         }
         self.results = results

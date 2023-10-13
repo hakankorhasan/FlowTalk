@@ -7,6 +7,7 @@
 
 import UIKit
 import InputBarAccessoryView
+import FirebaseDatabase
 
 extension UIView {
     
@@ -34,6 +35,75 @@ extension UIView {
         return frame.size.width + frame.origin.x
     }
 }
+
+/*  guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+      return
+  }
+  let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+
+  // "users" düğümüne erişim
+  let usersRef = Database.database().reference().child("users")
+  let refOnline = Database.database().reference().child(safeEmail).child("isOnline")
+         refOnline.setValue(false)
+  // "users" düğümü içindeki her kullanıcı verisini döngü ile gezme
+  usersRef.observe(.childAdded) { (snapshot) in
+      if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String, email == safeEmail {
+          // E-posta adresi güvenli e-posta ile eşleşiyor, "isOnline" değerini "true" yapın
+          let isOnlineRef = usersRef.child(snapshot.key).child("isOnline")
+          
+          isOnlineRef.setValue(false) { (error, reference) in
+              if let error = error {
+                  print("isOnline güncelleme hatası: \(error)")
+              } else {
+                  print("isOnline başarıyla güncellendi.")
+              }
+          }
+      }
+  }*/
+
+extension DatabaseReference {
+    static func setUserOnlineStatus(isOnline: Bool) {
+        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+        
+        let usersRef = Database.database().reference().child("users")
+        let refOnline = Database.database().reference().child(safeEmail).child("isOnline")
+        refOnline.setValue(isOnline)
+        
+        usersRef.observe(.childAdded) { (snapshot) in
+            if let userData = snapshot.value as? [String: Any],
+               let email = userData["email"] as? String,
+               email == safeEmail {
+                let isOnlineRef = usersRef.child(snapshot.key).child("isOnline")
+                
+                isOnlineRef.setValue(isOnline) { (error, reference) in
+                    if let error = error {
+                        print("isOnline error update error: ", error)
+                    } else {
+                        print("isOnline successfully updated.")
+                    }
+                }
+            }
+        }
+       /* if let currentEmail = UserDefaults.standard.value(forKey: "email") as? String {
+            let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+            let usersRef = Database.database().reference().child("users")
+            let userRef = usersRef.child(safeEmail).child("isOnline")
+            
+            userRef.setValue(isOnline) { (error, reference) in
+                if let error = error {
+                    print("isOnline güncelleme hatası: \(error)")
+                } else {
+                    print("isOnline başarıyla güncellendi.")
+                }
+            }
+        }*/
+    }
+}
+
 
 extension Notification.Name {
     /// Notification when user logs in

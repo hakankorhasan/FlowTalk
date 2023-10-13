@@ -7,6 +7,8 @@
 
 import Foundation
 
+var globalCurrUser: ChatAppUser?
+
 struct Const {
     /// Image height/width for Large NavBar state
     static let ImageSizeForLargeState: CGFloat = 40

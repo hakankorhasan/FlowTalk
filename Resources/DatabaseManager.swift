@@ -69,7 +69,8 @@ extension DatabaseManager {
     public func insertUser(with user: ChatAppUser, completion: @escaping (Bool) -> Void) {
         database.child(user.safeEmail).setValue([
             "first_name": user.firstName,
-            "last_name": user.firstName
+            "last_name": user.firstName,
+            "isOnline": user.isOnline
         ]) { [weak self] error, _ in
             
             guard let strongSelf = self else {
@@ -83,12 +84,13 @@ extension DatabaseManager {
             }
             
             strongSelf.database.child("users").observeSingleEvent(of: .value) { snapshot in
-                if var usersCollection = snapshot.value as? [[String: String]] {
+                if var usersCollection = snapshot.value as? [[String: Any]] {
                     //append to use dictionary
-                    let newElement: [[String: String]] = [
+                    let newElement: [[String: Any]] = [
                         [
                             "name": user.firstName + " " + user.lastName,
-                            "email": user.safeEmail
+                            "email": user.safeEmail,
+                            "isOnline": user.isOnline
                         ]
                     ]
                     usersCollection.append(contentsOf: newElement)
@@ -103,10 +105,11 @@ extension DatabaseManager {
                     }
                     
                 } else {
-                    let newsCollection: [[String: String]] = [
+                    let newsCollection: [[String: Any]] = [
                         [
                             "name": user.firstName + " " + user.lastName,
-                            "email": user.safeEmail
+                            "email": user.safeEmail,
+                            "isOnline": user.isOnline
                         ]
                     ]
                     
@@ -808,6 +811,7 @@ struct ChatAppUser {
     let firstName: String
     let lastName: String
     let emailAddress: String
+    var isOnline: Bool?
     
     var safeEmail: String {
         var safeEmail = emailAddress.replacingOccurrences(of: ".", with: "-")

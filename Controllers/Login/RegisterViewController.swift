@@ -8,6 +8,7 @@
 import UIKit
 import FirebaseAuth
 import JGProgressHUD
+import FirebaseDatabase
 
 final class RegisterViewController: UIViewController {
 
@@ -200,9 +201,12 @@ final class RegisterViewController: UIViewController {
                 UserDefaults.standard.setValue(email, forKey: "email")
                 UserDefaults.standard.setValue("\(firstName) \(lastName)" , forKey: "name")
                 
-                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email)
+                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: false)
+                
                 DatabaseManager.shared.insertUser(with: chatUser) { success in
                     if success {
+                        
+                        DatabaseReference.setUserOnlineStatus(isOnline: true)
                         // upload image
                         guard let image = strongSelf.imageView.image,
                               let data = image.pngData() else {

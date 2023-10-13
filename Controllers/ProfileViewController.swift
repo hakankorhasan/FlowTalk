@@ -10,12 +10,14 @@ import FirebaseAuth
 import FBSDKLoginKit
 import GoogleSignIn
 import SDWebImage
+import FirebaseDatabase
 
 final class ProfileViewController: UIViewController {
     
     @IBOutlet var tableView: UITableView!
 
     var data = [ProfileViewModel]()
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -38,13 +40,23 @@ final class ProfileViewController: UIViewController {
                 
                 guard let strongSelf = self else { return }
                 
+                guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+                    return
+                }
+                
+                DatabaseReference.setUserOnlineStatus(isOnline: false)
+                
                 UserDefaults.standard.setValue(nil, forKey: "email")
                 UserDefaults.standard.setValue(nil, forKey: "name")
+                
+                
                 //logout facebook
                 FBSDKLoginKit.LoginManager().logOut()
                 
                 //google log out
                 GIDSignIn.sharedInstance.signOut()
+                
+                
                 
                 do {
                     try FirebaseAuth.Auth.auth().signOut()
@@ -57,6 +69,8 @@ final class ProfileViewController: UIViewController {
                 } catch {
                     print("failed to sign out")
                 }
+                
+                
             }))
             
             actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))

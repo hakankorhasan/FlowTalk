@@ -11,6 +11,7 @@ import FBSDKLoginKit
 import GoogleSignIn
 import FirebaseCore
 import JGProgressHUD
+import FirebaseDatabase
 
 final class LoginViewController: UIViewController {
     
@@ -141,9 +142,12 @@ final class LoginViewController: UIViewController {
             
             print("did sign in with google: \(user)")
             
+            var isOnl: Bool? = false
+            
             guard let email = user.profile?.email,
                   let firstName = user.profile?.givenName,
-                  let lastName = user.profile?.familyName else { return }
+                  let lastName = user.profile?.familyName,
+                  let isOnline = isOnl else { return }
             
             UserDefaults.standard.set(email, forKey: "email")
             UserDefaults.standard.set("\(firstName) \(lastName)", forKey: "name")
@@ -151,11 +155,12 @@ final class LoginViewController: UIViewController {
             DatabaseManager.shared.userExists(with: email) { exists in
                 if !exists {
                     //insert to database
-                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email)
+                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: isOnline)
+                    
                     DatabaseManager.shared.insertUser(with: chatUser) { success in
                         if success {
                             // upload image
-                            
+                            DatabaseReference.setUserOnlineStatus(isOnline: true)
                             if ((user.profile?.hasImage) != nil) {
                                 guard let url = user.profile?.imageURL(withDimension: 200) else {
                                     return
@@ -188,6 +193,8 @@ final class LoginViewController: UIViewController {
             // If sign in succeeded, display the app's main content View.
             
             FirebaseAuth.Auth.auth().signIn(with: credential) { authResult, error in
+                
+                DatabaseReference.setUserOnlineStatus(isOnline: true)
                 guard authResult != nil, error == nil else {
                     print("failed to log in with google credential")
                     return
@@ -256,9 +263,12 @@ final class LoginViewController: UIViewController {
                 case .success(let data):
                     guard let userData = data as? [String: Any],
                           let firstName = userData["first_name"] as? String,
-                          let lastName = userData["last_name"] as? String else {
+                          let lastName = userData["last_name"] as? String
+                           else {
                         return
                     }
+                    
+                    DatabaseReference.setUserOnlineStatus(isOnline: true)
                     
                     UserDefaults.standard.set("\(firstName) \(lastName)", forKey: "name")
                           
@@ -329,11 +339,10 @@ extension LoginViewController: LoginButtonDelegate {
                 return
             }
             
-         
-            
             guard let firstName = result["first_name"] as? String,
                   let lastName = result["last_name"] as? String,
                   let email = result["email"] as? String,
+                  //let isOnline = result["isOnline"] as? Bool,
                   let picture = result["picture"] as? [String: Any],
                   let data = picture["data"] as? [String: Any],
                   let pictureUrl = data["url"] as? String else {
@@ -347,10 +356,11 @@ extension LoginViewController: LoginButtonDelegate {
             DatabaseManager.shared.userExists(with: email) { exists in
                 if !exists {
                     
-                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email)
+                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: false)
                     DatabaseManager.shared.insertUser(with: chatUser) { success in
                         if success {
                          
+                            DatabaseReference.setUserOnlineStatus(isOnline: true)
                             guard let url = URL(string: pictureUrl) else { return }
                             
                             print("Downloading data from facebook image")
@@ -387,6 +397,7 @@ extension LoginViewController: LoginButtonDelegate {
             
             FirebaseAuth.Auth.auth().signIn(with: credential) { [weak self] authResult, error in
                 
+                DatabaseReference.setUserOnlineStatus(isOnline: true)
                 guard let strongSelf = self else { return }
                 
                 guard result != nil, error == nil else {

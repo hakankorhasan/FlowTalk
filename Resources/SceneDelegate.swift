@@ -6,6 +6,8 @@
 //
 
 import UIKit
+import FirebaseAuth
+import FirebaseDatabase
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -19,6 +21,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let _ = (scene as? UIWindowScene) else { return }
     }
 
+    
+    
     func sceneDidDisconnect(_ scene: UIScene) {
         // Called as the scene is being released by the system.
         // This occurs shortly after the scene enters the background, or when its session is discarded.
@@ -27,14 +31,63 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        // Called when the scene has moved from an inactive state to an active state.
-        // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+        // Kullanıcının güvenli e-posta adresini alın
+        /*guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+
+        // "users" düğümüne erişim
+        let usersRef = Database.database().reference().child("users")
+        let refOnline = Database.database().reference().child(safeEmail).child("isOnline")
+        refOnline.setValue(true)
+        // "users" düğümü içindeki her kullanıcı verisini döngü ile gezme
+        usersRef.observe(.childAdded) { (snapshot) in
+            if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String, email == safeEmail {
+                // E-posta adresi güvenli e-posta ile eşleşiyor, "isOnline" değerini "true" yapın
+                let isOnlineRef = usersRef.child(snapshot.key).child("isOnline")
+                
+                isOnlineRef.setValue(true) { (error, reference) in
+                    if let error = error {
+                        print("isOnline güncelleme hatası: \(error)")
+                    } else {
+                        print("isOnline başarıyla güncellendi.")
+                    }
+                }
+            }
+        }*/
+        DatabaseReference.setUserOnlineStatus(isOnline: true)
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
-        // Called when the scene will move from an active state to an inactive state.
-        // This may occur due to temporary interruptions (ex. an incoming phone call).
+        // Kullanıcının güvenli e-posta adresini alın
+      /*  guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+
+        // "users" düğümüne erişim
+        let usersRef = Database.database().reference().child("users")
+        let refOnline = Database.database().reference().child(safeEmail).child("isOnline")
+               refOnline.setValue(false)
+        // "users" düğümü içindeki her kullanıcı verisini döngü ile gezme
+        usersRef.observe(.childAdded) { (snapshot) in
+            if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String, email == safeEmail {
+                // E-posta adresi güvenli e-posta ile eşleşiyor, "isOnline" değerini "true" yapın
+                let isOnlineRef = usersRef.child(snapshot.key).child("isOnline")
+                
+                isOnlineRef.setValue(false) { (error, reference) in
+                    if let error = error {
+                        print("isOnline güncelleme hatası: \(error)")
+                    } else {
+                        print("isOnline başarıyla güncellendi.")
+                    }
+                }
+            }
+        }*/
+        DatabaseReference.setUserOnlineStatus(isOnline: false)
     }
+
 
     func sceneWillEnterForeground(_ scene: UIScene) {
         // Called as the scene transitions from the background to the foreground.
