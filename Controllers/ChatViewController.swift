@@ -84,6 +84,7 @@ final class ChatViewController: MessagesViewController {
     
     private var onlineStatusTimer: Timer?
     
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -96,7 +97,6 @@ final class ChatViewController: MessagesViewController {
         setupOnlineState()
         onlineStatusTimer = Timer.scheduledTimer(timeInterval: 10, target: self, selector: #selector(setupOnlineState), userInfo: nil, repeats: true)
         
-        
         navBarSetupUI()
         configureGestureRecognizer()
         setupInputButton()
@@ -104,7 +104,6 @@ final class ChatViewController: MessagesViewController {
         //setupOnlineState()
         
     }
-    
     
     @objc func setupOnlineState() {
         let usersRef = Database.database().reference().child("users")
@@ -115,22 +114,26 @@ final class ChatViewController: MessagesViewController {
         usersRef.observe(.childAdded) { (snapshot) in
             if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String {
                 if email == self.otherUserEmail {
-                    if let isOnline = userData["isOnline"] as? Bool {
+                    
+                    if let isOnline = userData["isOnline"] as? Bool,
+                       var lastOnline = userData["lastOnline"] as? String {
                         if isOnline {
                             UIView.animate(withDuration: 0.2) {
                                 self.onlineDotView.backgroundColor = .green
+                                self.onlineTextLabel.text = "Online"
+                                self.userImageView.layer.borderColor = UIColor.green.cgColor
                             }
                         } else {
                             UIView.animate(withDuration: 0.2) {
                                 self.onlineDotView.backgroundColor = .lightGray
+                                self.onlineTextLabel.text = "Last online: " + lastOnline
+                                self.userImageView.layer.borderColor = UIColor.lightGray.cgColor
                             }
                         }
                     }
                 }
             }
         }
-        
-        
     }
     
     deinit {
@@ -142,6 +145,11 @@ final class ChatViewController: MessagesViewController {
        let dotView = UIView()
         dotView.backgroundColor = .darkGray
         return dotView
+    }()
+    
+    private let onlineTextLabel: UILabel = {
+        let label = UILabel()
+        return label
     }()
     
     private func navBarSetupUI() {
@@ -157,9 +165,7 @@ final class ChatViewController: MessagesViewController {
         onlineDotView.widthAnchor.constraint(equalToConstant: 10).isActive = true // Genişlik belirle
         onlineDotView.heightAnchor.constraint(equalToConstant: 10).isActive = true // Yükseklik belirle
         
-        let onlineLabel = UILabel()
-        onlineLabel.text = "Online"
-        onlineLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        onlineTextLabel.font = .systemFont(ofSize: 12, weight: .regular)
         
         if let otherUserPhotoURL = self.otherUserPhotoURL {
             userImageView.sd_setImage(with: otherUserPhotoURL)
@@ -175,6 +181,7 @@ final class ChatViewController: MessagesViewController {
                         self?.userImageView.sd_setImage(with: url)
                     }
                 case .failure(let error):
+                   // self?.userImageView.image = UIImage(systemName: "questionmark")
                     print(error.localizedDescription)
                 }
             }
@@ -182,13 +189,16 @@ final class ChatViewController: MessagesViewController {
         
         userImageView.layer.cornerRadius = Const.ImageSizeForLargeState / 2
         userImageView.clipsToBounds = true
+        userImageView.contentMode = .scaleAspectFill
+        userImageView.layer.borderColor = UIColor.white.cgColor
+        userImageView.layer.borderWidth = 1.5
         userImageView.translatesAutoresizingMaskIntoConstraints = false
         userImageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
         userImageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
         
         userNameLabel.text = title
         
-        let stackViewOnline = UIStackView(arrangedSubviews: [onlineDotView, onlineLabel])
+        let stackViewOnline = UIStackView(arrangedSubviews: [onlineDotView, onlineTextLabel])
         stackViewOnline.axis = .horizontal
         stackViewOnline.spacing = 4
         stackViewOnline.alignment = .center
@@ -201,16 +211,22 @@ final class ChatViewController: MessagesViewController {
         let horizontalStackView = UIStackView(arrangedSubviews: [userImageView, verticalStackView])
         horizontalStackView.spacing = 15
         horizontalStackView.alignment = .center
+       // horizontalStackView.distribution = .fillProportionally
+        let spacer = UIView()
+        let constraint = spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: CGFloat.greatestFiniteMagnitude)
+        constraint.isActive = true
+        constraint.priority = .defaultLow
         
-        let stackView = UIStackView(arrangedSubviews: [horizontalStackView, UIView()])
-        stackView.distribution = .fillEqually
-        stackView.alignment = .center
+        let stackView = UIStackView(arrangedSubviews: [horizontalStackView, spacer])
+        //stackView.distribution = .
+        //stackView.alignment = .leading
        
         // Özel bir boşluk ekleyerek backButton'un sağında 20 birimlik boşluk bırakabiliriz.
-        let spacer = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
-        spacer.width = 10
+        let spacer2 = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
+        spacer2.width = 10
 
-        navigationItem.leftBarButtonItems = [spacer, backButtonItem]
+        navigationItem.leftBarButtonItems = [spacer2, backButtonItem]
+    
         
         navigationItem.titleView = stackView
         
@@ -927,6 +943,7 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
                             avatarView.sd_setImage(with: url)
                         }
                     case .failure(let error):
+                       // avatarView.image = UIImage(systemName: "questionmark")
                         print(error.localizedDescription)
                     }
                 }
@@ -948,6 +965,7 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
                              avatarView.sd_setImage(with: url)
                          }
                      case .failure(let error):
+                         //avatarView.image = UIImage(systemName: "questionmark")
                          print(error.localizedDescription)
                      }
                  }

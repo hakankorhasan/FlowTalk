@@ -201,12 +201,12 @@ final class RegisterViewController: UIViewController {
                 UserDefaults.standard.setValue(email, forKey: "email")
                 UserDefaults.standard.setValue("\(firstName) \(lastName)" , forKey: "name")
                 
-                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: false)
+                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: false, lastOnline: "")
                 
                 DatabaseManager.shared.insertUser(with: chatUser) { success in
                     if success {
                         
-                        DatabaseReference.setUserOnlineStatus(isOnline: true)
+                        DatabaseReference.setUserOnlineStatus(isOnline: true, lastOnline: lastOnlineConstant)
                         // upload image
                         guard let image = strongSelf.imageView.image,
                               let data = image.pngData() else {

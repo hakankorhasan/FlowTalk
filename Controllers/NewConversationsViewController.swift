@@ -174,17 +174,20 @@ extension NewConversationsViewController: UISearchBarDelegate {
             
             guard let isOnline = $0["isOnline"] else { return false }
             
+            guard let lastOnline = $0["lastOnline"] as? String else { return false }
+            
             return name.lowercased().hasPrefix(term.lowercased())
         }.compactMap {
             
             guard let email = $0["email"] as? String, email != safeEmail,
                   let name = $0["name"] as? String,
-                  let isOnline = $0["isOnline"] as? Bool else {
+                  let isOnline = $0["isOnline"] as? Bool,
+                  let lastOnline = $0["lastOnline"] as? String else {
                 return nil
             }
             //let isOnlineString = isOnline ? "true" : "false"
            // let isOnlineBool = isOnline.lowercased() == "true"
-            return SearchResult(name: name, email: email, isOnline: isOnline)
+            return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
         }
         self.results = results
         

@@ -70,7 +70,8 @@ extension DatabaseManager {
         database.child(user.safeEmail).setValue([
             "first_name": user.firstName,
             "last_name": user.firstName,
-            "isOnline": user.isOnline
+            "isOnline": user.isOnline,
+            "lastOnline": user.lastOnline
         ]) { [weak self] error, _ in
             
             guard let strongSelf = self else {
@@ -90,7 +91,8 @@ extension DatabaseManager {
                         [
                             "name": user.firstName + " " + user.lastName,
                             "email": user.safeEmail,
-                            "isOnline": user.isOnline
+                            "isOnline": user.isOnline,
+                            "lastOnline": user.lastOnline
                         ]
                     ]
                     usersCollection.append(contentsOf: newElement)
@@ -109,7 +111,8 @@ extension DatabaseManager {
                         [
                             "name": user.firstName + " " + user.lastName,
                             "email": user.safeEmail,
-                            "isOnline": user.isOnline
+                            "isOnline": user.isOnline,
+                            "lastOnline": user.lastOnline
                         ]
                     ]
                     
@@ -813,6 +816,7 @@ struct ChatAppUser {
     let lastName: String
     let emailAddress: String
     var isOnline: Bool?
+    var lastOnline: String?
     
     var safeEmail: String {
         var safeEmail = emailAddress.replacingOccurrences(of: ".", with: "-")

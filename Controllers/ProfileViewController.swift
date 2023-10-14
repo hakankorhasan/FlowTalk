@@ -44,7 +44,8 @@ final class ProfileViewController: UIViewController {
                     return
                 }
                 
-                DatabaseReference.setUserOnlineStatus(isOnline: false)
+                
+                DatabaseReference.setUserOnlineStatus(isOnline: false, lastOnline: lastOnlineConstant)
                 
                 UserDefaults.standard.setValue(nil, forKey: "email")
                 UserDefaults.standard.setValue(nil, forKey: "name")
