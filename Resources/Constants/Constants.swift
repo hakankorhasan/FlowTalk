@@ -9,6 +9,7 @@ import Foundation
 
 var globalCurrUser: ChatAppUser?
 var lastOnlineConstant = Util.getStringFromDate(format: "HH:mm dd/MM/YYYY", date:Date())
+var isRoomIn: Bool = false
 
 struct Const {
     /// Image height/width for Large NavBar state

@@ -209,6 +209,7 @@ extension DatabaseManager {
             
             let newConversationsData: [String: Any] = [
                 "id": conversationID,
+                "isRoomBeginIn": false,
                 "other_user_email": otherUserEmail,
                 "name": name,
                 "latest_message": [
@@ -218,8 +219,10 @@ extension DatabaseManager {
                 ]
             ]
             
+            
             let recipient_newConversationsData: [String: Any] = [
                 "id": conversationID,
+                "isRoomBeginIn": false,
                 "other_user_email": safeEmail,
                 "name": currentName,
                 "latest_message": [
@@ -362,6 +365,7 @@ extension DatabaseManager {
             let conversations: [Conversation] = value.compactMap { dictionary in
                 guard let conversationId = dictionary["id"] as? String,
                       let name = dictionary["name"] as? String,
+                      let isRoomBeginIn = dictionary["isRoomBeginIn"] as? Bool,
                       let otherUserEmail = dictionary["other_user_email"] as? String,
                       let latestMessage = dictionary["latest_message"] as? [String: Any],
                       let date = latestMessage["date"] as? String,
@@ -373,7 +377,7 @@ extension DatabaseManager {
                 
                 let latestMessageObject = LatestMessage(date: date, isRead: isRead, text: message)
                 
-                return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, latestMessage: latestMessageObject)
+                return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, isRoomBeginIn: isRoomBeginIn, latestMessage: latestMessageObject)
             }
             
             completion(.success(conversations))
@@ -496,7 +500,45 @@ extension DatabaseManager {
             return
         }
         
+        var isReadDatabaseValue: Bool = false
+        var isCurrentUserRoom: Bool = false
+        var isOtherUserRoom: Bool = false
+        
         let currentEmail = DatabaseManager.safeEmail(emaildAddress: myEmail)
+        let safeOtherEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+       
+        
+        let otherUserIsRoom = database.child("\(safeOtherEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        let currentUserIsRoom = database.child("\(currentEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        
+        currentUserIsRoom.observeSingleEvent(of: .value) { (snapshot) in
+            guard let currentuserRoomValue = snapshot.value as? Bool else {
+                return
+            }
+            
+            isCurrentUserRoom = currentuserRoomValue
+        }
+        
+        otherUserIsRoom.observeSingleEvent(of: .value) { (snapshot) in
+            
+            guard let otherUserRoomValue = snapshot.value as? Bool else {
+                return
+            }
+            
+            isOtherUserRoom = otherUserRoomValue
+            
+            if otherUserRoomValue {
+                isReadDatabaseValue = true
+            } else {
+                isReadDatabaseValue = false
+            }
+        }
+        // mesaj atıyoruz
+        // atmadan önce attığımız kullanıcının oda da olup olmadığını kontrol edeceğiz
+        // oda da ise atılan mesajın is_read değişkeni true olacak
+        // değilse is_read false olacak
+        
+        
         
         // add new message to messages array
         self.database.child("\(conversation)/messages").observeSingleEvent(of: .value) { [weak self] snapshot in
@@ -551,7 +593,6 @@ extension DatabaseManager {
                 return
             }
             
-            
             let currentUserEmail = DatabaseManager.safeEmail(emaildAddress: myEmmail)
             
             let newMessageEntry: [String: Any] = [
@@ -562,7 +603,7 @@ extension DatabaseManager {
                 "date": dateString,
                 "audioDuration": newMessage.audioDur ?? 0.0,
                 "sender_email": currentUserEmail,
-                "is_read": false,
+                "is_read": isReadDatabaseValue,
             ]
             
             // update sender latest message
@@ -580,7 +621,7 @@ extension DatabaseManager {
                     
                     let updatedValue: [String: Any] = [
                         "date": dateString,
-                        "is_read": false,
+                        "is_read": isReadDatabaseValue,
                         "message": message
                     ]
                     
@@ -605,6 +646,7 @@ extension DatabaseManager {
                         } else {
                             let newConversationsData: [String: Any] = [
                                 "id": conversation,
+                                "isRoomBeginIn": isOtherUserRoom,
                                 "other_user_email": DatabaseManager.safeEmail(emaildAddress: otherUserEmail),
                                 "name": name,
                                 "latest_message": updatedValue
@@ -616,6 +658,7 @@ extension DatabaseManager {
                     } else {
                         let newConversationsData: [String: Any] = [
                             "id": conversation,
+                            "isRoomBeginIn": isOtherUserRoom,
                             "other_user_email": DatabaseManager.safeEmail(emaildAddress: otherUserEmail),
                             "name": name,
                             "latest_message": updatedValue
@@ -641,7 +684,7 @@ extension DatabaseManager {
                             
                             let updatedValue: [String: Any] = [
                                 "date": dateString,
-                                "is_read": false,
+                                "is_read": isReadDatabaseValue,
                                 "message": message
                             ]
                             
@@ -669,6 +712,7 @@ extension DatabaseManager {
                                 } else {
                                     let newConversationsData: [String: Any] = [
                                         "id": conversation,
+                                        "isRoomBeginIn": isCurrentUserRoom,
                                         "other_user_email": DatabaseManager.safeEmail(emaildAddress: currentEmail),
                                         "name": currentName,
                                         "latest_message": updatedValue
@@ -680,6 +724,7 @@ extension DatabaseManager {
                             } else {
                                 let newConversationsData: [String: Any] = [
                                     "id": conversation,
+                                    "isRoomBeginIn": isCurrentUserRoom,
                                     "other_user_email": DatabaseManager.safeEmail(emaildAddress: currentEmail),
                                     "name": currentName,
                                     "latest_message": updatedValue

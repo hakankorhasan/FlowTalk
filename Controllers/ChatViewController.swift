@@ -92,17 +92,72 @@ final class ChatViewController: MessagesViewController {
         messagesCollectionView.messagesLayoutDelegate = self
         messagesCollectionView.messagesDisplayDelegate = self
         messagesCollectionView.messageCellDelegate = self
+        maintainPositionOnKeyboardFrameChanged = true // default false
+        showMessageTimestampOnSwipeLeft = true // default false
+
+       // isLastMessageSentByCurrentUser()
+      // isLastMessageSentByCurrentUser()
         messageInputBar.delegate = self
         navigationItem.hidesBackButton = true
         setupOnlineState()
         onlineStatusTimer = Timer.scheduledTimer(timeInterval: 10, target: self, selector: #selector(setupOnlineState), userInfo: nil, repeats: true)
-        
+
         navBarSetupUI()
         configureGestureRecognizer()
         setupInputButton()
         setupTrashAnimation()
         //setupOnlineState()
         
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        //isRoomIn = true
+        
+        let ref = Database.database().reference()
+        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+        
+        let safeOtherUserEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+        let otherUserIsRoom = ref.child("\(otherUserEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        
+        let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        isRoomBeginRef.setValue(true)
+       //isRoomIn = (isRoomBeginRef.value(forKey: "isRoomBeginIn") != nil)
+        
+        let newIdentifier = "conversation_From\(safeOtherUserEmail)_Tomk\(safeCurrEmail)"
+        
+        isRoomBeginRef.observeSingleEvent(of: .value) { (snapshot) in
+            guard let isRoomBeginValue = snapshot.value as? Bool else { return }
+            
+            if isRoomBeginValue {
+                let latestMesReadRef = ref.child(safeOtherUserEmail).child("conversations").child("0").child("latest_message").child("is_read")
+                let currentUserUpdate = ref.child(safeCurrEmail).child("conversations").child("0").child("latest_message").child("is_read")
+                latestMesReadRef.setValue(true)
+                currentUserUpdate.setValue(true)
+            } else {
+                print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
+            }
+        }
+        
+        // bu sayfaya gelirken klavyenin direkt olarak açılmasını sağlar.
+        let height: CGFloat = 100 //whatever height you want to add to the existing height
+            let bounds = self.navigationController!.navigationBar.bounds
+            self.navigationController?.navigationBar.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height + height)
+        messageInputBar.inputTextView.becomeFirstResponder()
+        if let conversationId = conversationId {
+            listeningForMessages(id: conversationId, shouldScrollToBottom: true)
+        }
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        let ref = Database.database().reference()
+        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+        
+        let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        isRoomBeginRef.setValue(false)
     }
     
     @objc func setupOnlineState() {
@@ -126,7 +181,7 @@ final class ChatViewController: MessagesViewController {
                         } else {
                             UIView.animate(withDuration: 0.2) {
                                 self.onlineDotView.backgroundColor = .lightGray
-                                self.onlineTextLabel.text = "Last online: " + lastOnline
+                                self.onlineTextLabel.text = "Last seen: " + lastOnline
                                 self.userImageView.layer.borderColor = UIColor.lightGray.cgColor
                             }
                         }
@@ -137,8 +192,8 @@ final class ChatViewController: MessagesViewController {
     }
     
     deinit {
-            // Zamanlayıcıyı ve Firebase gözlemini temizle
-            onlineStatusTimer?.invalidate()
+        // Zamanlayıcıyı ve Firebase gözlemini temizle
+        onlineStatusTimer?.invalidate()
     }
     
     private let onlineDotView: UIView = {
@@ -227,12 +282,12 @@ final class ChatViewController: MessagesViewController {
 
         navigationItem.leftBarButtonItems = [spacer2, backButtonItem]
     
-        
         navigationItem.titleView = stackView
         
     }
     
     @objc private func handleBack() {
+        isRoomIn = false
         self.navigationController?.popViewController(animated: true)
     }
     
@@ -462,8 +517,6 @@ final class ChatViewController: MessagesViewController {
             deleteAudioFileWithName(audioFileName)
             audioFileName = ""
         }
-        
-        
     }
 
     func deleteAudioFileWithName(_ fileName: String) {
@@ -480,8 +533,6 @@ final class ChatViewController: MessagesViewController {
     }
     
     private func presentInputActionSheet() {
-        
-       
         
         let actionSheet = UIAlertController(title: "Attach Media", message: "What would you like to attach?", preferredStyle: .actionSheet)
         
@@ -657,26 +708,166 @@ final class ChatViewController: MessagesViewController {
             }
         }
     }
+
+    func messageBottomLabelAttributedText(for message: MessageKit.MessageType, at indexPath: IndexPath) -> NSAttributedString? {
+        
+        let dateString = Util.getStringFromDate(format: "HH:mm dd/MM/YYYY", date: message.sentDate)
+
+        let attachment = NSTextAttachment()
+        attachment.image = UIImage(named: "notRead")
+        attachment.bounds = CGRect(x: 0, y: -4, width: 18, height: 18) // İlk sembol
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        let font = UIFont(name: "Avenir-Medium", size: 10.0) // Özelleştirilmiş bir font oluşturun veya mevcut bir fontu kullanın
+
+        let dateStringAttributes: [NSAttributedString.Key: Any] = [
+            .font: font, // Özelleştirilmiş fontu burada belirtin
+        ]
+
+        let dateStringAttributedString = NSAttributedString(string: dateString, attributes: dateStringAttributes)
+
+        let finalString = NSMutableAttributedString()
+        let otherFinalString = NSMutableAttributedString()
+        
+
+        if message.sender.senderId == selfSender?.senderId {
+            finalString.append(dateStringAttributedString)
+            finalString.append(NSAttributedString(string: " "))
+            finalString.append(attachmentString)
+            return finalString
+        } else {
+            otherFinalString.append(dateStringAttributedString)
+            return otherFinalString
+        }
+       
+        
+    }
     
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        // bu sayfaya gelirken klavyenin direkt olarak açılmasını sağlar.
-        let height: CGFloat = 100 //whatever height you want to add to the existing height
-            let bounds = self.navigationController!.navigationBar.bounds
-            self.navigationController?.navigationBar.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height + height)
-        messageInputBar.inputTextView.becomeFirstResponder()
-        if let conversationId = conversationId {
-            listeningForMessages(id: conversationId, shouldScrollToBottom: true)
+}
+
+extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, MessagesLayoutDelegate {
+    
+
+    func messageBottomLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
+        return 17
+    }
+    
+    func currentSender() -> MessageKit.SenderType {
+        if let sender = selfSender {
+            return sender
+        }
+        
+        fatalError("self sender is nil, email should be cached")
+    }
+    
+    func messageForItem(at indexPath: IndexPath, in messagesCollectionView: MessageKit.MessagesCollectionView) -> MessageKit.MessageType {
+        return messages[indexPath.section]
+    }
+    
+    func numberOfSections(in messagesCollectionView: MessageKit.MessagesCollectionView) -> Int {
+        messages.count
+    }
+    
+    
+    func configureAudioCell(_ cell: AudioMessageCell, message: MessageType) {
+        cell.progressView.trackTintColor = .darkGray
+        cell.progressView.progressTintColor = .white
+    }
+    
+    
+    func configureMediaMessageImageView(_ imageView: UIImageView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
+        
+        guard let message = message as? Message else {
+            return
+        }
+        
+        switch message.kind {
+        case .photo(let media):
+            guard let imageUrl = media.url else {
+                return
+            }
+            imageView.sd_setImage(with: imageUrl)
+        default:
+            break
         }
     }
     
+    func backgroundColor(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> UIColor {
+        let sender = message.sender
+        if sender.senderId == selfSender?.senderId {
+            //mesajı gönderenin mesaj balonunun rengi
+            return .link
+        }
+        
+        // mesajı alanın mesaj balonunun rengi
+        return .secondarySystemBackground
+    }
+    
+    func configureAvatarView(_ avatarView: AvatarView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
+        
+        let sender = message.sender
+        //avatarView.frame.size.height = 26
+        
+        //avatarView.frame.size.width = 26// Özelleştirilecek yüksekliği ayarlayın
+        //avatarView.contentMode = .scaleAspectFit
+       // avatarView.frame.origin.y = 26
+        if sender.senderId == selfSender?.senderId {
+           // put avatarview sender user image
+            
+            if let currentUserPhotoURL = self.senderUserPhotoURL {
+                avatarView.sd_setImage(with: currentUserPhotoURL)
+            } else {
+                guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+                    return
+                }
+                
+                let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+                let path = "images/\(safeEmail)_profile_picture.png"
+                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                    switch result {
+                    case .success(let url):
+                        DispatchQueue.main.async {
+                            // tekrar tekrar indirme yapmaması için böyle bir yapı kullandık
+                            self?.senderUserPhotoURL = url
+                            avatarView.sd_setImage(with: url)
+                        }
+                    case .failure(let error):
+                       // avatarView.image = UIImage(systemName: "questionmark")
+                        print(error.localizedDescription)
+                    }
+                }
+            }
+        } else {
+            // put avatarview sender user image
+             if let otherUserPhotoURL = self.otherUserPhotoURL {
+                 avatarView.sd_setImage(with: otherUserPhotoURL)
+             } else {
+                 
+                 let email = self.otherUserEmail
+                 let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+                 let path = "images/\(safeEmail)_profile_picture.png"
+                 StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                     switch result {
+                     case .success(let url):
+                         DispatchQueue.main.async {
+                             self?.otherUserPhotoURL = url
+                             avatarView.sd_setImage(with: url)
+                         }
+                     case .failure(let error):
+                         //avatarView.image = UIImage(systemName: "questionmark")
+                         print(error.localizedDescription)
+                     }
+                 }
+             }
+        }
+    }
+
 }
 
 
 extension ChatViewController: AVAudioRecorderDelegate, AVAudioPlayerDelegate{
     
 }
-
 
 extension ChatViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
@@ -866,117 +1057,18 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
     }
 }
 
-extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, MessagesLayoutDelegate {
-    
-    func currentSender() -> MessageKit.SenderType {
-        if let sender = selfSender {
-            return sender
-        }
-        
-        fatalError("self sender is nil, email should be cached")
-    }
-    
-    func messageForItem(at indexPath: IndexPath, in messagesCollectionView: MessageKit.MessagesCollectionView) -> MessageKit.MessageType {
-        return messages[indexPath.section]
-    }
-    
-    func numberOfSections(in messagesCollectionView: MessageKit.MessagesCollectionView) -> Int {
-        messages.count
-    }
-    
-    
-    func configureAudioCell(_ cell: AudioMessageCell, message: MessageType) {
-        cell.progressView.trackTintColor = .darkGray
-        cell.progressView.progressTintColor = .white
-    }
-    
-    
-    func configureMediaMessageImageView(_ imageView: UIImageView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
-        
-        guard let message = message as? Message else {
-            return
-        }
-        
-        switch message.kind {
-        case .photo(let media):
-            guard let imageUrl = media.url else {
-                return
-            }
-            imageView.sd_setImage(with: imageUrl)
-        default:
-            break
-        }
-    }
-    
-    func backgroundColor(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> UIColor {
-        let sender = message.sender
-        if sender.senderId == selfSender?.senderId {
-            //mesajı gönderenin mesaj balonunun rengi
-            return .link
-        }
-        
-        // mesajı alanın mesaj balonunun rengi
-        return .secondarySystemBackground
-    }
-    
-    func configureAvatarView(_ avatarView: AvatarView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
-        
-        let sender = message.sender
-        
-        if sender.senderId == selfSender?.senderId {
-           // put avatarview sender user image
-            if let currentUserPhotoURL = self.senderUserPhotoURL {
-                avatarView.sd_setImage(with: currentUserPhotoURL)
-            } else {
-                guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
-                    return
-                }
-                
-                let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-                let path = "images/\(safeEmail)_profile_picture.png"
-                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                    switch result {
-                    case .success(let url):
-                        DispatchQueue.main.async {
-                            // tekrar tekrar indirme yapmaması için böyle bir yapı kullandık
-                            self?.senderUserPhotoURL = url
-                            avatarView.sd_setImage(with: url)
-                        }
-                    case .failure(let error):
-                       // avatarView.image = UIImage(systemName: "questionmark")
-                        print(error.localizedDescription)
-                    }
-                }
-            }
-        } else {
-            // put avatarview sender user image
-             if let otherUserPhotoURL = self.otherUserPhotoURL {
-                 avatarView.sd_setImage(with: otherUserPhotoURL)
-             } else {
-                 
-                 let email = self.otherUserEmail
-                 let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-                 let path = "images/\(safeEmail)_profile_picture.png"
-                 StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                     switch result {
-                     case .success(let url):
-                         DispatchQueue.main.async {
-                             self?.otherUserPhotoURL = url
-                             avatarView.sd_setImage(with: url)
-                         }
-                     case .failure(let error):
-                         //avatarView.image = UIImage(systemName: "questionmark")
-                         print(error.localizedDescription)
-                     }
-                 }
-             }
-        }
-    }
-    
-}
 
 extension ChatViewController: MessageCellDelegate {
     
+    func messageStyle(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> MessageStyle {
+        let corner: MessageStyle.TailCorner = isFromCurrentSender(message: message) ? .bottomRight : .bottomLeft
+        //    let borderColor:UIColor = isFromCurrentSender(message: message) ? .black: .purple
+        return .bubbleTail(corner, .curved)
+            
+            
+        return .bubble
+    }
+  
     func didTapImage(in cell: MessageCollectionViewCell) {
         print("tapped image")
         guard let indexPath = messagesCollectionView.indexPath(for: cell) else {

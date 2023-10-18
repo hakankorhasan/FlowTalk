@@ -11,6 +11,7 @@ struct Conversation {
     let id: String
     let name: String
     let otherUserEmail: String
+    var isRoomBeginIn: Bool
     let latestMessage: LatestMessage
 }
 
