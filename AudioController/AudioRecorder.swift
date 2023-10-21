@@ -13,83 +13,82 @@ import AVFoundation
 
 class AudioRecorder: NSObject, AVAudioRecorderDelegate {
     
-    var recordingSession: AVAudioSession!
-    var audioRecorder: AVAudioRecorder!
-    var isAudioRecordingGranted: Bool!
-    
     static let shared = AudioRecorder()
-    
-    private override init() {
-        super.init()
         
-        checkForRecordPermission()
-    }
-    
-    
-    func checkForRecordPermission() {
-        
-        switch AVAudioSession.sharedInstance().recordPermission {
-        case .granted:
-            isAudioRecordingGranted = true
-            break
-        case .denied:
-            isAudioRecordingGranted = false
-            break
-            
-        case .undetermined:
-            AVAudioSession.sharedInstance().requestRecordPermission { (isAllowed) in
-                
-                self.isAudioRecordingGranted = isAllowed
+    var recorder: AVAudioRecorder?
+    var player: AVAudioPlayer?
+    var timer: Timer?
+    var url: URL?
+    var audioLevel: Float = 0.0
+
+    func startRecording(audiofilename: String) {
+        // Ses kaydetme işlemleri burada
+        player?.stop()
+        if let recorder = self.recorder{
+            if recorder.isRecording{
+                self.recorder?.pause()
             }
-        default:
-            break
-        }
-    }
-    
-    func setupRecorder() {
-        
-        if isAudioRecordingGranted {
-            
-            recordingSession = AVAudioSession.sharedInstance()
-            
-            do {
-                try recordingSession.setCategory(.playAndRecord, mode: .default)
-                try recordingSession.setActive(true)
-                
-            } catch {
-                print("error setting up audio recorder", error.localizedDescription)
+            else{
+                self.recorder?.record()
             }
         }
+        else{
+            initializeRecorder(audioFile: audiofilename)
+        }
+    }
+
+    func stopRecording() {
+        // Ses kaydetmeyi durdurma işlemleri burada
+        self.recorder?.stop()
+        let session = AVAudioSession.sharedInstance()
+        try! session.setActive(false)
+        self.url = self.recorder?.url
+        self.recorder = nil
+        timer?.invalidate()
+        timer = nil
+    }
+
+    func initializeRecorder(audioFile: String) {
+        // Ses kaydediciyi başlatma işlemleri burada
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, options: .defaultToSpeaker)
+        let directory =  FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        var recordSetting = [AnyHashable: Any]()
+        recordSetting[AVFormatIDKey] = kAudioFormatMPEG4AAC
+        recordSetting[AVSampleRateKey] = 16000.0
+        recordSetting[AVNumberOfChannelsKey] = 1
+        if let filePath = directory.first?.appendingPathComponent(audioFile), let audioRecorder = try? AVAudioRecorder(url: filePath, settings: (recordSetting as? [String : Any] ?? [:])){
+                print(filePath)
+                
+            self.recorder = audioRecorder
+            self.recorder?.delegate = self
+            self.recorder?.isMeteringEnabled = true
+            self.recorder?.prepareToRecord()
+            self.recorder?.record()
+        }
+        //filepath is an optional URL
+    }
+
+    func playAudio() {
+        // Ses çalma işlemleri burada
     }
     
+    @objc func playerDidFinishPlaying() {
+        // Çalma işlemi tamamlandığında yapılması gereken işlemler burada
+        self.player?.stop()
+    }
     
-    func startRecording(fileName: String) {
-        
-        let audioFileName = getDocumentsURL().appendingPathComponent(fileName + ".m4a", isDirectory: false)
-        
-        let settings = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 12000,
-            AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-        ]
+    func deleteAudioFileWithName(_ fileName: String) {
+        let fileManager = FileManager.default
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsDirectory.appendingPathComponent(fileName)
         
         do {
-            audioRecorder = try AVAudioRecorder(url: audioFileName, settings: settings)
-            audioRecorder.delegate = self
-            audioRecorder.record()
-            
+            try fileManager.removeItem(at: fileURL)
+            print("Dosya silindi: \(fileName)")
         } catch {
-            print("Error recording ", error.localizedDescription)
-            finishRecording()
+            print("Dosya silinemedi: \(error)")
         }
     }
-    
-    func finishRecording() {
         
-        if audioRecorder != nil {
-            audioRecorder.stop()
-            audioRecorder = nil
-        }
-    }
 }

@@ -17,8 +17,22 @@ import Lottie
  
 final class ChatViewController: MessagesViewController {
     
-    private var senderUserPhotoURL: URL?
-    private var otherUserPhotoURL: URL?
+    //selfSender adlı bir hesaplanmış özellik (computed property) kullanır.
+    //Bu özellik, her çağrıldığında UserDefaults ile saklanan e-posta adresini alır ve
+    //bu e-posta adresini kullanarak bir Sender nesnesi oluşturur. Bu nesneyi döndürür.
+    //Bu kod, selfSender özelliğine her erişildiğinde yeni bir Sender nesnesi oluşturur.
+    //Yani her çağrıldığında farklı bir Sender nesnesi dönebilir.
+    private var selfSender: Sender? {
+        guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+            return nil
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+        
+        return Sender(photoURL: "",
+               displayName: "me",
+               senderId: safeEmail)
+    }
     
     private let userImageView: UIImageView = {
        let iv = UIImageView()
@@ -39,6 +53,20 @@ final class ChatViewController: MessagesViewController {
         return formatter
     }()
     
+    private let onlineDotView: UIView = {
+       let dotView = UIView()
+        dotView.backgroundColor = .darkGray
+        return dotView
+    }()
+    
+    private let onlineTextLabel: UILabel = {
+        let label = UILabel()
+        return label
+    }()
+    
+    private var senderUserPhotoURL: URL?
+    private var otherUserPhotoURL: URL?
+    
     var longPressGesture: UILongPressGestureRecognizer!
     var audioFileName = ""
     var audioDuration: Date!
@@ -50,28 +78,17 @@ final class ChatViewController: MessagesViewController {
     public let otherUserEmail: String
     public var conversationId: String?
     public var isNewConversation = false
-    private let inputBarForButton = InputBarAccessoryView()
+    
+    var handle: UInt!
+    var updateHandler: UInt!
+    private var ref: DatabaseReference!
+    
+    let trashButton = InputBarButtonItem()
+    let paperclipButton = InputBarButtonItem()
+    var animationView = LottieAnimationView(name: "trashJson")
    
     private var messages = [Message]()
     
-    //selfSender adlı bir hesaplanmış özellik (computed property) kullanır.
-    //Bu özellik, her çağrıldığında UserDefaults ile saklanan e-posta adresini alır ve
-    //bu e-posta adresini kullanarak bir Sender nesnesi oluşturur. Bu nesneyi döndürür.
-    //Bu kod, selfSender özelliğine her erişildiğinde yeni bir Sender nesnesi oluşturur.
-    //Yani her çağrıldığında farklı bir Sender nesnesi dönebilir.
-    private var selfSender: Sender? {
-        guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
-            return nil
-        }
-        
-        let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-        
-        return Sender(photoURL: "",
-               displayName: "me",
-               senderId: safeEmail)
-    }
-    
-        
     init(with email: String, id: String?) {
         self.otherUserEmail = email
         self.conversationId = id
@@ -81,9 +98,6 @@ final class ChatViewController: MessagesViewController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
-    private var onlineStatusTimer: Timer?
-    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -95,51 +109,19 @@ final class ChatViewController: MessagesViewController {
         maintainPositionOnKeyboardFrameChanged = true // default false
         showMessageTimestampOnSwipeLeft = true // default false
 
-       // isLastMessageSentByCurrentUser()
-      // isLastMessageSentByCurrentUser()
         messageInputBar.delegate = self
         navigationItem.hidesBackButton = true
         setupOnlineState()
-        onlineStatusTimer = Timer.scheduledTimer(timeInterval: 10, target: self, selector: #selector(setupOnlineState), userInfo: nil, repeats: true)
-
+       
         navBarSetupUI()
         configureGestureRecognizer()
         setupInputButton()
         setupTrashAnimation()
-        //setupOnlineState()
-        
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         //isRoomIn = true
-        
-        let ref = Database.database().reference()
-        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
-        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
-        
-        let safeOtherUserEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
-        let otherUserIsRoom = ref.child("\(otherUserEmail)").child("conversations").child("0").child("isRoomBeginIn")
-        
-        let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
-        isRoomBeginRef.setValue(true)
-       //isRoomIn = (isRoomBeginRef.value(forKey: "isRoomBeginIn") != nil)
-        
-        let newIdentifier = "conversation_From\(safeOtherUserEmail)_Tomk\(safeCurrEmail)"
-        
-        isRoomBeginRef.observeSingleEvent(of: .value) { (snapshot) in
-            guard let isRoomBeginValue = snapshot.value as? Bool else { return }
-            
-            if isRoomBeginValue {
-                let latestMesReadRef = ref.child(safeOtherUserEmail).child("conversations").child("0").child("latest_message").child("is_read")
-                let currentUserUpdate = ref.child(safeCurrEmail).child("conversations").child("0").child("latest_message").child("is_read")
-                latestMesReadRef.setValue(true)
-                currentUserUpdate.setValue(true)
-            } else {
-                print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
-            }
-        }
-        
         // bu sayfaya gelirken klavyenin direkt olarak açılmasını sağlar.
         let height: CGFloat = 100 //whatever height you want to add to the existing height
             let bounds = self.navigationController!.navigationBar.bounds
@@ -148,64 +130,142 @@ final class ChatViewController: MessagesViewController {
         if let conversationId = conversationId {
             listeningForMessages(id: conversationId, shouldScrollToBottom: true)
         }
-    }
-    
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-        let ref = Database.database().reference()
-        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
-        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
         
-        let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
-        isRoomBeginRef.setValue(false)
-    }
-    
-    @objc func setupOnlineState() {
-        let usersRef = Database.database().reference().child("users")
-        
-        let otherUserEm = self.otherUserEmail
-        let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEm)
-        
-        usersRef.observe(.childAdded) { (snapshot) in
-            if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String {
-                if email == self.otherUserEmail {
+        if !isNewConversation {
+            let ref = Database.database().reference()
+            guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+            
+            let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+            let safeOtherUserEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+            
+            let otherUserIsRoom = ref.child("\(otherUserEmail)").child("conversations").child("0").child("isRoomBeginIn")
+            let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
+            isRoomBeginRef.setValue(true)
+            
+            let messagesArrayPath = "conversation_From\(safeCurrEmail)_Tomk\(safeOtherUserEmail)"
+            let updateMessageId = "From\(safeCurrEmail)_Tomk\(safeOtherUserEmail)"
+            let updateMessageRef = ref.child(messagesArrayPath).child("messages")
+            
+            isRoomBeginRef.observeSingleEvent(of: .value) { (snapshot) in
+                guard let isRoomBeginValue = snapshot.value as? Bool else { return }
+                
+                let latestMesReadRef = ref.child(safeOtherUserEmail).child("conversations").child("0").child("latest_message").child("is_read")
+                let currentUserUpdate = ref.child(safeCurrEmail).child("conversations").child("0").child("latest_message").child("is_read")
+                
+                if isRoomBeginValue {
+                    latestMesReadRef.setValue(true)
+                    currentUserUpdate.setValue(true)
                     
-                    if let isOnline = userData["isOnline"] as? Bool,
-                       var lastOnline = userData["lastOnline"] as? String {
-                        if isOnline {
-                            UIView.animate(withDuration: 0.2) {
-                                self.onlineDotView.backgroundColor = .green
-                                self.onlineTextLabel.text = "Online"
-                                self.userImageView.layer.borderColor = UIColor.green.cgColor
-                            }
-                        } else {
-                            UIView.animate(withDuration: 0.2) {
-                                self.onlineDotView.backgroundColor = .lightGray
-                                self.onlineTextLabel.text = "Last seen: " + lastOnline
-                                self.userImageView.layer.borderColor = UIColor.lightGray.cgColor
+                } else {
+                    print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
+                }
+            }
+            
+            otherUserIsRoom.observeSingleEvent(of: .value) { (snapshot) in
+                guard let otherUserRoomValue = snapshot.value as? Bool else {
+                    return
+                }
+                
+                if otherUserRoomValue {
+                    updateMessageRef.observeSingleEvent(of: .value) { (snapshot) in
+                        if let messagesData = snapshot.value as? [[String: Any]] {
+                            var count = 0
+                            for messageData in messagesData {
+                                count += 1
+                                if let messageId = messageData["id"] as? String, messageId == updateMessageId {
+                                    print("Eşleşen Mesaj ID: \(messageId)")
+                                    // İşlem yapmak istediğiniz diğer mesaj özelliklerini burada işleyebilirsiniz.
+                                    print(count)
+                                    let messageRef = updateMessageRef.child("\(count-1)").child("is_read")
+                                    messageRef.setValue(true)
+                                }
                             }
                         }
                     }
+                } else {
+                    print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
                 }
             }
         }
     }
     
-    deinit {
-        // Zamanlayıcıyı ve Firebase gözlemini temizle
-        onlineStatusTimer?.invalidate()
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        // Remove observer
+        self.ref.removeObserver(withHandle: self.handle)
+        self.ref.removeObserver(withHandle: self.updateHandler)
+        
+        let ref = Database.database().reference()
+        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+        
+        if !isNewConversation {
+            let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
+            isRoomBeginRef.setValue(false)
+        }
+        
     }
     
-    private let onlineDotView: UIView = {
-       let dotView = UIView()
-        dotView.backgroundColor = .darkGray
-        return dotView
-    }()
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        audioController.stopAnyOngoingPlaying()
+    }
     
-    private let onlineTextLabel: UILabel = {
-        let label = UILabel()
-        return label
-    }()
+    override func viewWillAppear(_ animated: Bool) {
+        setupOnlineState()
+    }
+    
+    /// - MARK:  Users' abilitiy to be online
+    /// - It's updates and reads the user's online information.
+    /// - It works as live data.
+    /// - Instantly reflects online information on the screen.
+    @objc func setupOnlineState() {
+    
+        let usersRef = Database.database().reference().child("users")
+            
+        let otherUserEm = self.otherUserEmail
+        let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEm)
+        ref = usersRef
+            
+        let handleChildAdded: (DataSnapshot) -> Void = { snapshot in
+            self.handleSnapshot(snapshot)
+        }
+            
+        let handleChildChanged: (DataSnapshot) -> Void = { snapshot in
+            self.handleSnapshot(snapshot)
+        }
+            
+        handle = ref.observe(.childAdded, with: handleChildAdded)
+        updateHandler = ref.observe(.childChanged, with: handleChildChanged)
+    }
+    
+    func handleSnapshot(_ snapshot: DataSnapshot) {
+        if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String {
+            if email == self.otherUserEmail {
+                if let isOnline = userData["isOnline"] as? Bool,
+                    var lastOnline = userData["lastOnline"] as? String {
+                    self.isOnlineCheck(isOnline: isOnline, lastOnline: lastOnline)
+                }
+            }
+        }
+    }
+    
+    private func isOnlineCheck(isOnline: Bool, lastOnline: String) {
+        if isOnline {
+            UIView.animate(withDuration: 0.2) {
+                self.onlineDotView.backgroundColor = .green
+                self.onlineTextLabel.text = "Online"
+                self.userImageView.layer.borderColor = UIColor.green.cgColor
+            }
+        } else {
+            UIView.animate(withDuration: 0.2) {
+                self.onlineDotView.backgroundColor = .lightGray
+                self.onlineTextLabel.text = "Last seen: " + lastOnline
+                self.userImageView.layer.borderColor = UIColor.lightGray.cgColor
+            }
+        }
+    }
     
     private func navBarSetupUI() {
         let backButtonItem = UIBarButtonItem(image: UIImage(systemName: "chevron.left"), style: .done, target: self, action: #selector(handleBack))
@@ -287,18 +347,8 @@ final class ChatViewController: MessagesViewController {
     }
     
     @objc private func handleBack() {
-        isRoomIn = false
         self.navigationController?.popViewController(animated: true)
     }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        audioController.stopAnyOngoingPlaying()
-    }
-    
-    let trashButton = InputBarButtonItem()
-    let paperclipButton = InputBarButtonItem()
-    var animationView = LottieAnimationView(name: "trashJson")
 
     private func setupTrashAnimation() {
         // Lottie animasyonu oluşturun
@@ -327,69 +377,6 @@ final class ChatViewController: MessagesViewController {
     
     }
     
-    var recorder: AVAudioRecorder?
-    var player: AVAudioPlayer?
-    var timer: Timer?
-    var url:URL?
-    var audioLevel: Float = 0.0
-    
-    private func startRecording(audiofilename: String) {
-        player?.stop()
-        if let recorder = self.recorder{
-            if recorder.isRecording{
-                self.recorder?.pause()
-            }
-            else{
-                self.recorder?.record()
-            }
-        }
-        else{
-            initializeRecorder(audioFile: audiofilename)
-        }
-        
-    }
-    
-    private func stopRecording() {
-        self.recorder?.stop()
-        let session = AVAudioSession.sharedInstance()
-        try! session.setActive(false)
-        self.url = self.recorder?.url
-        self.recorder = nil
-        timer?.invalidate()
-        timer = nil
-    }
-    
-    func initializeRecorder(audioFile: String) {
-        
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playAndRecord, options: .defaultToSpeaker)
-        let directory =  FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        var recordSetting = [AnyHashable: Any]()
-        recordSetting[AVFormatIDKey] = kAudioFormatMPEG4AAC
-        recordSetting[AVSampleRateKey] = 16000.0
-        recordSetting[AVNumberOfChannelsKey] = 1
-        if let filePath = directory.first?.appendingPathComponent(audioFile), let audioRecorder = try? AVAudioRecorder(url: filePath, settings: (recordSetting as? [String : Any] ?? [:])){
-            print(filePath)
-            
-            self.recorder = audioRecorder
-            self.recorder?.delegate = self
-            self.recorder?.isMeteringEnabled = true
-            self.recorder?.prepareToRecord()
-            self.recorder?.record()
-        }
-        //filepath is an optional URL
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        NotificationCenter.default.addObserver(self, selector: #selector(self.playerDidFinishPlaying), name: NSNotification.Name.AVPlayerItemDidPlayToEndTime, object:  player?.currentTime)
-    }
-    
-    @objc func playerDidFinishPlaying() {
-        // Your code here
-        self.player?.stop()
-    }
-    
-    
     private func configureGestureRecognizer(){
         longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(recordAudio))
         longPressGesture.minimumPressDuration = 0.5
@@ -416,7 +403,7 @@ final class ChatViewController: MessagesViewController {
             audioDuration = Date()
             audioFileName = Date().stringDate()
             audioFileName = audioFileName + ".m4a"
-            startRecording(audiofilename: audioFileName)
+            AudioRecorder.shared.startRecording(audiofilename: audioFileName)
         
         case .changed:
         
@@ -435,7 +422,7 @@ final class ChatViewController: MessagesViewController {
             } else {
                 longPressGesture.isEnabled = false
                 
-                stopRecording()
+                AudioRecorder.shared.stopRecording()
                 
                 UIView.animate(withDuration: 0.2) {
                     // Butonu küçült
@@ -490,7 +477,7 @@ final class ChatViewController: MessagesViewController {
     
     func handleSwipeGesture() {
         
-        stopRecording()
+        AudioRecorder.shared.stopRecording()
         longPressGesture.isEnabled = false
         
         messageInputBar.setLeftStackViewWidthConstant(to: 50, animated: true)
@@ -514,24 +501,11 @@ final class ChatViewController: MessagesViewController {
         // Ardından ses kaydını sil
         if !audioFileName.isEmpty {
             longPressGesture.isEnabled = true
-            deleteAudioFileWithName(audioFileName)
+            AudioRecorder.shared.deleteAudioFileWithName(audioFileName)
             audioFileName = ""
         }
     }
 
-    func deleteAudioFileWithName(_ fileName: String) {
-        let fileManager = FileManager.default
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let fileURL = documentsDirectory.appendingPathComponent(fileName)
-        
-        do {
-            try fileManager.removeItem(at: fileURL)
-            print("Dosya silindi: \(fileName)")
-        } catch {
-            print("Dosya silinemedi: \(error)")
-        }
-    }
-    
     private func presentInputActionSheet() {
         
         let actionSheet = UIAlertController(title: "Attach Media", message: "What would you like to attach?", preferredStyle: .actionSheet)
@@ -865,9 +839,7 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
 }
 
 
-extension ChatViewController: AVAudioRecorderDelegate, AVAudioPlayerDelegate{
-    
-}
+extension ChatViewController: AVAudioRecorderDelegate, AVAudioPlayerDelegate{}
 
 extension ChatViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     
