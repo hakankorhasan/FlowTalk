@@ -179,7 +179,7 @@ extension DatabaseManager {
             
             let messageDate = firstMessage.sentDate
             let dateString = ChatViewController.dateFormatter.string(from: messageDate)
-            
+        
             var message = ""
             
             switch firstMessage.kind {
@@ -482,7 +482,7 @@ extension DatabaseManager {
                 
                 let sender = Sender(photoURL: "", displayName: name, senderId: senderEmail)
                                 
-                return Message(sender: sender, messageId: messageId, sentDate: dateString, kind: finalKind)
+                return Message(sender: sender, messageId: messageId, sentDate: dateString, kind: finalKind, isRead: isRead)
             }
             
             completion(.success(messages))

@@ -2,12 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Please allow access to take a profile picture.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Please allow access to take profile picture.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Please allow access to send audio and video messages.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -18,14 +12,14 @@
 			</array>
 		</dict>
 	</array>
-	<key>GIDClientID</key>
-	<string>983021958103-6sjr25jbfba11tguvlllpano1ce0knn9.apps.googleusercontent.com</string>
 	<key>FacebookAppID</key>
 	<string>1223031201727551</string>
 	<key>FacebookClientToken</key>
 	<string>177d902576e94c7cdd95eaf283263569</string>
 	<key>FacebookDisplayName</key>
 	<string>Flow Talk</string>
+	<key>GIDClientID</key>
+	<string>983021958103-6sjr25jbfba11tguvlllpano1ce0knn9.apps.googleusercontent.com</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>fbapi</string>
@@ -50,5 +44,13 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>voip</string>
+		<string>processing</string>
+		<string>push-to-talk</string>
+		<string>voip</string>
+	</array>
 </dict>
 </plist>

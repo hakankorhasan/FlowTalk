@@ -10,14 +10,16 @@ import Foundation
 var globalCurrUser: ChatAppUser?
 var lastOnlineConstant = Util.getStringFromDate(format: "HH:mm dd/MM/YYYY", date:Date())
 var isRoomIn: Bool = false
+var converId: String?
 
 struct Const {
     /// Image height/width for Large NavBar state
     static let ImageSizeForLargeState: CGFloat = 40
     /// Margin from right anchor of safe area to right anchor of Image
     static let ImageLeftMargin: CGFloat = 45
+    static let ImageRightMargin: CGFloat = 16
     /// Margin from bottom anchor of NavBar to bottom anchor of Image for Large NavBar state
-    static let ImageBottomMarginForLargeState: CGFloat = 12
+    static let ImageBottomMarginForLargeState: CGFloat = 45
     /// Margin from bottom anchor of NavBar to bottom anchor of Image for Small NavBar state
     static let ImageBottomMarginForSmallState: CGFloat = 6
     /// Image height/width for Small NavBar state

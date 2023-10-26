@@ -15,6 +15,7 @@ struct Message: MessageType {
     public var sentDate: Date
     public var kind: MessageKind
     public var audioDur: Float?
+    public var isRead: Bool?
 }
 
 struct Sender: SenderType {

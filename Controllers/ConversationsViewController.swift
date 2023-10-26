@@ -12,7 +12,7 @@ import JGProgressHUD
 /// Controller that show list of conversations
 final class ConversationsViewController: UIViewController{
     
-    private let spinner = JGProgressHUD(style: .dark)
+    private let spinner = JGProgressHUD(style: .light)
     
     private var conversations = [Conversation]()
     
@@ -32,15 +32,22 @@ final class ConversationsViewController: UIViewController{
         return label
     }()
     
+    private let plusButton: UIButton = {
+       let btn = UIButton()
+        btn.setImage(UIImage(named: "add"), for: .normal)
+        return btn
+    }()
+    
     private var loginObserver: NSObjectProtocol?
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .compose, target: self, action: #selector(didTapComposeButton))
+        plusButton.addTarget(self, action: #selector(didTapComposeButton), for: .touchUpInside)
         view.addSubview(tableView)
         view.addSubview(noConversationsLabel)
-        
+        noConversationsLabel.isHidden = true
+        setupUI()
         setupTableView()
         startListeningForConversations()
         
@@ -49,6 +56,50 @@ final class ConversationsViewController: UIViewController{
             
             strongSelf.startListeningForConversations()
         })
+    }
+    
+    private func setupUI() {
+        // Initial setup for image for Large NavBar state since the the screen always has Large NavBar once it gets opened
+        guard let navigationBar = self.navigationController?.navigationBar else { return }
+        navigationBar.addSubview(plusButton)
+      //  plusButton.layer.cornerRadius = Const.ImageSizeForLargeState / 2
+        plusButton.clipsToBounds = true
+        plusButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            plusButton.rightAnchor.constraint(equalTo: navigationBar.rightAnchor,constant: -Const.ImageRightMargin),
+            plusButton.bottomAnchor.constraint(equalTo: navigationBar.bottomAnchor, constant: -Const.ImageBottomMarginForLargeState),
+            plusButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState),
+            plusButton.widthAnchor.constraint(equalTo: plusButton.heightAnchor)
+                ])
+    }
+    
+    private func moveAndResizeImage(for height: CGFloat) {
+        let coeff: CGFloat = {
+            let delta = height - Const.NavBarHeightSmallState
+            let heightDifferenceBetweenStates = (Const.NavBarHeightLargeState - Const.NavBarHeightSmallState)
+            return delta / heightDifferenceBetweenStates
+        }()
+
+        let factor = Const.ImageSizeForSmallState / Const.ImageSizeForLargeState
+
+        let scale: CGFloat = {
+            let sizeAddendumFactor = coeff * (1.0 - factor)
+            return min(1.0, sizeAddendumFactor + factor)
+        }()
+
+        // Value of difference between icons for large and small states
+        let sizeDiff = Const.ImageSizeForLargeState * (1.0 - factor) // 8.0
+        let yTranslation: CGFloat = {
+            /// This value = 14. It equals to difference of 12 and 6 (bottom margin for large and small states). Also it adds 8.0 (size difference when the image gets smaller size)
+            let maxYTranslation = Const.ImageBottomMarginForLargeState - Const.ImageBottomMarginForSmallState + sizeDiff
+            return max(0, min(maxYTranslation, (maxYTranslation - coeff * (Const.ImageBottomMarginForSmallState + sizeDiff))))
+        }()
+
+        let xTranslation = max(0, sizeDiff - coeff * sizeDiff)
+
+        plusButton.transform = CGAffineTransform.identity
+            .scaledBy(x: scale, y: scale)
+            .translatedBy(x: xTranslation, y: yTranslation)
     }
     
     private func startListeningForConversations() {
@@ -62,6 +113,8 @@ final class ConversationsViewController: UIViewController{
         
         let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
         
+        spinner.show(in: view)
+        
         DatabaseManager.shared.getAllConversations(for: safeEmail) { [weak self] result in
             print(result)
             switch result {
@@ -71,6 +124,8 @@ final class ConversationsViewController: UIViewController{
                     self?.noConversationsLabel.isHidden = false
                     return
                 }
+                
+                self?.spinner.dismiss()
                 self?.noConversationsLabel.isHidden = true
                 self?.tableView.isHidden = false
                 self?.conversations = conversations
@@ -80,8 +135,29 @@ final class ConversationsViewController: UIViewController{
                 }
                 
             case .failure(let error):
+                self?.spinner.dismiss()
+                self?.noConversationsLabel.isHidden = false
                 print("failed to get convos: \(error)")
             }
+        }
+    }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard let height = navigationController?.navigationBar.frame.height else { return }
+        moveAndResizeImage(for: height)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        showImage(false)
+    }
+
+    /// Show or hide the image from NavBar while going to next screen or back to initial screen
+    ///
+    /// - Parameter show: show or hide the image from NavBar
+    private func showImage(_ show: Bool) {
+        UIView.animate(withDuration: 0.2) {
+            self.plusButton.alpha = show ? 1.0 : 0.0
         }
     }
     
@@ -151,7 +227,7 @@ final class ConversationsViewController: UIViewController{
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
+        showImage(true)
         validateAuth()
     }
     
