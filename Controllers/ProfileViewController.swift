@@ -60,7 +60,7 @@ final class ProfileViewController: UIViewController {
                 do {
                     try FirebaseAuth.Auth.auth().signOut()
                     
-                    let vc = LoginViewController()
+                    let vc = InitialScreenVC()
                     let navControl = UINavigationController(rootViewController: vc)
                     navControl.modalPresentationStyle = .fullScreen
                     strongSelf.present(navControl, animated: false)

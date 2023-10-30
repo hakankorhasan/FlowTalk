@@ -12,6 +12,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Gratina.otf</string>
+	</array>
 	<key>FacebookAppID</key>
 	<string>1223031201727551</string>
 	<key>FacebookClientToken</key>

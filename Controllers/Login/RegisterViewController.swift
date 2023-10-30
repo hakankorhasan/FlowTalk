@@ -117,6 +117,7 @@ final class RegisterViewController: UIViewController {
         passwordTextField.delegate = self
         
         view.addSubview(scrollView)
+       
         scrollView.addSubview(imageView)
         scrollView.addSubview(firstName)
         scrollView.addSubview(lastName)
