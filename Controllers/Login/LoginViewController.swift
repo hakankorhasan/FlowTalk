@@ -91,7 +91,7 @@ final class LoginViewController: UIViewController {
 
         title = "Login"
         view.backgroundColor = .systemBackground
-    
+        
         loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
             guard let strongSelf = self else { return }
             

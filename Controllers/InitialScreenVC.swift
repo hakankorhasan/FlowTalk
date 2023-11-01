@@ -9,6 +9,8 @@ import UIKit
 import GoogleSignIn
 import FirebaseCore
 import FirebaseDatabase
+import FBSDKLoginKit
+import FBSDKCoreKit
 import JGProgressHUD
 import FirebaseAuth
 
@@ -32,7 +34,6 @@ class InitialScreenVC: UIViewController {
     var btnLogin = UIButton()
     var btnGoogle = UIButton()
     var btnFacebook = UIButton()
-   // var googleButton = GIDSignInButton()
     
     var lbVer = UILabel()
     var cantLoginLb = UILabel()
@@ -51,6 +52,13 @@ class InitialScreenVC: UIViewController {
     
     private var loginObserver: NSObjectProtocol?
     
+    private let facebookLoginButton: FBLoginButton = {
+       let facebookBtn = FBLoginButton()
+        facebookBtn.permissions = ["public_profile", "email"]
+        return facebookBtn
+    }()
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
@@ -58,6 +66,18 @@ class InitialScreenVC: UIViewController {
             
             strongSelf.navigationController?.dismiss(animated: true)
         })
+        
+        let layoutConstraintsArr = btnFacebook.constraints
+       
+        // Iterate over array and test constraints until we find the correct one:
+        for lc in layoutConstraintsArr { // or attribute is NSLayoutAttributeHeight etc.
+           if ( lc.constant == 28 ){
+             // Then disable it...
+               lc.isActive = false
+             break
+           }
+        }
+        
         view.addSubview(scrollView)
         scrollView.isScrollEnabled = false
         emailTextField.delegate = self
@@ -214,6 +234,7 @@ class InitialScreenVC: UIViewController {
         // add buttons
         btnGoogle.isHidden = true
         btnFacebook.isHidden = true
+        btnFacebook.setImage(nil, for: .normal)
         scrollView.addSubview(btnRegister)
         scrollView.addSubview(btnGoogle)
         scrollView.addSubview(btnFacebook)
@@ -240,7 +261,7 @@ class InitialScreenVC: UIViewController {
         btnFacebook.translatesAutoresizingMaskIntoConstraints = false
         btnFacebook.anchor(top: nil, leading: nil, bottom: lbVer.topAnchor, trailing: nil, padding: .init(top: 0, left: 0, bottom: 80, right: 0), size: .init(width: 60, height: 60))
         btnFacebook.centerXAnchor.constraint(equalTo: view.centerXAnchor, constant: 40).isActive = true
-
+        
         if let originalImage = UIImage(named: "facebook") {
             let imageSize = CGSize(width: 30, height: 30) // Ayarlamak istediğiniz boyutu burada belirleyin
             UIGraphicsBeginImageContextWithOptions(imageSize, false, 0.0)
@@ -248,10 +269,11 @@ class InitialScreenVC: UIViewController {
             let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
             UIGraphicsEndImageContext()
             btnFacebook.setImage(resizedImage, for: .normal)
+            //btnFacebook.configure(with: FBIcon.init(), title: "", backgroundColor: .white.withAlphaComponent(0.6), highlightedColor: .white.withAlphaComponent(0.6))
         }
         btnFacebook.backgroundColor = UIColor.white.withAlphaComponent(0.6)
+       
         btnFacebook.addTarget(self, action: #selector(signInWithFacebook), for: .touchUpInside)
-
         
         btnRegister.translatesAutoresizingMaskIntoConstraints = false
         btnRegister.anchor(top: nil, leading: view.leadingAnchor, bottom: lbVer.topAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 50, bottom: 80, right: 50), size: .init(width: 0, height: 60))
@@ -270,7 +292,6 @@ class InitialScreenVC: UIViewController {
         btnLogin.titleLabel?.font = UIFont(name: "Gratina", size: 16)
         btnLogin.addTarget(self, action: #selector(goToLogin), for: .touchUpInside)
         
-        
         roundCorner(views: [btnFacebook, btnGoogle ,btnLogin, btnRegister], radius: 30)
         
     }
@@ -281,8 +302,17 @@ class InitialScreenVC: UIViewController {
         }
     }
     
+  
+    
     @objc func signInWithFacebook() {
-        
+        FacebookSignInManager.signWithFacebook(viewController: self) { success in
+            if success {
+                self.navigationController?.dismiss(animated: true)
+            } else {
+                print("failed")
+            }
+        }
+       
     }
     
     @objc func signInWithGoogle() {
@@ -376,7 +406,8 @@ class InitialScreenVC: UIViewController {
     }
     
     @objc private func goToRegister() {
-        let loginVC = RegisterViewController()
+        let loginVC = RegisterVC()
+        loginVC.navigationItem.hidesBackButton = true
         navigationController?.pushViewController(loginVC, animated: true)
     }
 }
@@ -393,4 +424,17 @@ extension InitialScreenVC: UITextFieldDelegate {
         return true
     }
 
+}
+
+extension InitialScreenVC: LoginButtonDelegate {
+    
+    func loginButton(_ loginButton: FBSDKLoginKit.FBLoginButton, didCompleteWith result: FBSDKLoginKit.LoginManagerLoginResult?, error: Error?) {
+        
+    }
+    
+    func loginButtonDidLogOut(_ loginButton: FBSDKLoginKit.FBLoginButton) {
+        
+    }
+    
+    
 }

@@ -57,6 +57,7 @@ extension DatabaseManager {
             // sıfıra eşit değilse yani aynı mail de başka bir tane daha var ise false döndürür
             // aynı kullanıcıdan var ise users koleksiyonuna bir daha eklemez
             guard snapshot.value as? [String: Any] != nil else {
+                print("GELDİİİİİİİİ")
                 completion(false)
                 return
             }
