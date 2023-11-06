@@ -70,7 +70,7 @@ extension DatabaseManager {
     public func insertUser(with user: ChatAppUser, completion: @escaping (Bool) -> Void) {
         database.child(user.safeEmail).setValue([
             "first_name": user.firstName,
-            "last_name": user.firstName,
+            "last_name": user.lastName,
             "isOnline": user.isOnline,
             "lastOnline": user.lastOnline
         ]) { [weak self] error, _ in

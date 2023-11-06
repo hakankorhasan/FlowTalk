@@ -51,11 +51,18 @@ final class ConversationsViewController: UIViewController{
         setupTableView()
         startListeningForConversations()
         
-        loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
-            guard let strongSelf = self else { return }
-            
-            strongSelf.startListeningForConversations()
-        })
+        loginObserver = NotificationCenter.default.addObserver(forName: .didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
+                   guard let strongSelf = self else {
+                       return
+                   }
+
+                   strongSelf.startListeningForConversations()
+               })
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        startListeningForConversations()
     }
     
     private func setupUI() {
@@ -111,6 +118,7 @@ final class ConversationsViewController: UIViewController{
             NotificationCenter.default.removeObserver(observer)
         }
         
+        print("starting conversation fetch...")
         let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
         
         spinner.show(in: view)
@@ -119,6 +127,7 @@ final class ConversationsViewController: UIViewController{
             print(result)
             switch result {
             case .success(let conversations):
+                print("successfully got conversation models")
                 guard !conversations.isEmpty else {
                     self?.tableView.isHidden = true
                     self?.noConversationsLabel.isHidden = false
@@ -136,6 +145,7 @@ final class ConversationsViewController: UIViewController{
                 
             case .failure(let error):
                 self?.spinner.dismiss()
+                self?.tableView.isHidden = true
                 self?.noConversationsLabel.isHidden = false
                 print("failed to get convos: \(error)")
             }

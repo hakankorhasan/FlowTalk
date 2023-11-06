@@ -11,7 +11,10 @@ import FirebaseDatabase
 import JGProgressHUD
 
 class FirebaseAuthManager {
-    static func signInWithFirebase(viewController: UIViewController, email: String, password: String, completion: @escaping (Bool) -> Void) {
+    static func signInWithFirebase(viewController: UIViewController,
+                                   email: String,
+                                   password: String,
+                                   completion: @escaping (Bool) -> Void) {
         
         let spinner = JGProgressHUD(style: .dark)
         
@@ -36,7 +39,7 @@ class FirebaseAuthManager {
             let user = authResult?.user
             
             let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-            
+        
             DatabaseManager.shared.getDataFor(path: safeEmail) { result in
                 switch result {
                 case .success(let data):
@@ -49,14 +52,14 @@ class FirebaseAuthManager {
                     
                     DatabaseReference.setUserOnlineStatus(isOnline: true, lastOnline: "")
                     
-                    UserDefaults.standard.set("\(firstName) \(lastName)", forKey: "name")
+                    UserDefaults.standard.setValue("\(firstName) \(lastName)", forKey: "name")
                 case .failure(let error):
                     print("result for data error: \(error)")
                 }
             
             }
             
-            UserDefaults.standard.set(email, forKey: "email")
+            UserDefaults.standard.setValue(email, forKey: "email")
             
             completion(true)
         }

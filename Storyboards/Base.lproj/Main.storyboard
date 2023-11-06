@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22154" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="JDx-42-e9X">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22155" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="JDx-42-e9X">
     <device id="retina6_12" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22130"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22131"/>
         <capability name="Image references" minToolsVersion="12.0"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -34,17 +35,36 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="-1" estimatedSectionHeaderHeight="-1" sectionFooterHeight="-1" estimatedSectionFooterHeight="-1" translatesAutoresizingMaskIntoConstraints="NO" id="ath-d4-GPN">
-                                <rect key="frame" x="0.0" y="155" width="393" height="614"/>
+                            <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="-1" estimatedSectionHeaderHeight="-1" sectionFooterHeight="-1" estimatedSectionFooterHeight="-1" contentViewInsetsToSafeArea="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ath-d4-GPN">
+                                <rect key="frame" x="0.0" y="155" width="393" height="514"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                             </tableView>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="5e7-w4-PA6">
+                                <rect key="frame" x="50" y="693" width="293" height="40"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="40" id="wWd-Il-Lsw"/>
+                                </constraints>
+                                <buttonConfiguration key="configuration" style="plain" title="Logout and Exit">
+                                    <backgroundConfiguration key="background">
+                                        <color key="backgroundColor" name="AccentColor"/>
+                                    </backgroundConfiguration>
+                                    <color key="baseForegroundColor" systemColor="systemBackgroundColor"/>
+                                </buttonConfiguration>
+                                <connections>
+                                    <action selector="LogOutAndExit:" destination="aEz-xn-E28" eventType="touchUpInside" id="8G4-e7-hzb"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="fF1-rm-5FO"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
-                            <constraint firstItem="fF1-rm-5FO" firstAttribute="bottom" secondItem="ath-d4-GPN" secondAttribute="bottom" id="5bk-Ys-FLH"/>
+                            <constraint firstItem="ath-d4-GPN" firstAttribute="bottom" secondItem="fF1-rm-5FO" secondAttribute="bottom" constant="-100" id="0TP-6k-y2k"/>
+                            <constraint firstItem="fF1-rm-5FO" firstAttribute="bottom" secondItem="ath-d4-GPN" secondAttribute="bottom" constant="100" id="5bk-Ys-FLH"/>
                             <constraint firstItem="fF1-rm-5FO" firstAttribute="trailing" secondItem="ath-d4-GPN" secondAttribute="trailing" id="80A-Eb-HjJ"/>
+                            <constraint firstItem="fF1-rm-5FO" firstAttribute="trailing" secondItem="5e7-w4-PA6" secondAttribute="trailing" constant="50" id="8wh-pg-V4b"/>
+                            <constraint firstItem="5e7-w4-PA6" firstAttribute="top" secondItem="ath-d4-GPN" secondAttribute="bottom" constant="24" id="Q6v-Cf-S0k"/>
                             <constraint firstItem="ath-d4-GPN" firstAttribute="leading" secondItem="fF1-rm-5FO" secondAttribute="leading" id="XoU-g7-n9f"/>
+                            <constraint firstItem="5e7-w4-PA6" firstAttribute="leading" secondItem="fF1-rm-5FO" secondAttribute="leading" constant="50" id="hCf-EK-9S4"/>
                             <constraint firstItem="ath-d4-GPN" firstAttribute="top" secondItem="fF1-rm-5FO" secondAttribute="top" id="nuI-xk-4gN"/>
                         </constraints>
                     </view>
@@ -55,7 +75,7 @@
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="lcn-Bg-ZmE" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="31" y="1497"/>
+            <point key="canvasLocation" x="29.770992366412212" y="1496.4788732394368"/>
         </scene>
         <!--Tab Bar Controller-->
         <scene sceneID="Ixo-WS-dMM">
@@ -119,6 +139,9 @@
     <resources>
         <image name="message" catalog="system" width="128" height="116"/>
         <image name="person.crop.circle" catalog="system" width="128" height="123"/>
+        <namedColor name="AccentColor">
+            <color red="0.0" green="0.46000000000000002" blue="0.89000000000000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </namedColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>

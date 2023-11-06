@@ -40,12 +40,25 @@ class RegisterVC: UIViewController {
     
     private var registerButton = UIButton()
     
+    var nameSurenameView = UIStackView()
+    var emailAddressView = UIStackView()
+    var passwordView = UIStackView()
+    var phoneView = UIStackView()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleSecureImage))
+        
+        scrollView.isUserInteractionEnabled = true
         isSecureImage.isUserInteractionEnabled = true
         isSecureImage.addGestureRecognizer(tapGesture)
+        
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(didTapChangeProfilePic))
+        userImageView.addGestureRecognizer(gesture)
+        view.addSubview(scrollView)
+        scrollView.isScrollEnabled = false
+        registerButton.addTarget(self, action: #selector(handleRegister), for: .touchUpInside)
         countryCodeTF.isUserInteractionEnabled = true
         phoneTF.delegate = self
         createCountryPicker()
@@ -53,10 +66,21 @@ class RegisterVC: UIViewController {
         setupViews()
     }
     
-    let attributes: [NSAttributedString.Key : Any] = [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.8),
-                                                      NSAttributedString.Key.font: UIFont(name: "", size: 12.0) ?? UIFont.systemFont(ofSize: 12.0) ]
-
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        //scrollView.contentSize = CGSize(width: view.frame.size.width, height: view.frame.size.height)
+        scrollView.frame = view.bounds
+    }
     
+    
+    @objc fileprivate func didTapChangeProfilePic() {
+        presentPhotoActionSheet()
+        print("geldi")
+    }
+    
+    let attributes: [NSAttributedString.Key : Any] = [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.8),
+        NSAttributedString.Key.font: UIFont(name: "", size: 12.0) ?? UIFont.systemFont(ofSize: 12.0) ]
+
     private func setupViews() {
         setupBackground()
         setupIvBack()
@@ -68,14 +92,34 @@ class RegisterVC: UIViewController {
         registerBtnUI()
     }
     
-    var nameSurenameView = UIStackView()
-    var emailAddressView = UIStackView()
-    var passwordView = UIStackView()
-    var phoneView = UIStackView()
+    @objc private func handleRegister() {
+        guard let email = emailTF.text,
+              let password = passwordTF.text,
+              let firstName = nameTF.text,
+              let lastName = surnameTF.text,
+              !email.isEmpty,
+              !firstName.isEmpty,
+              !lastName.isEmpty,
+              !password.isEmpty,
+              password.count >= 6 else {
+            //alertUserLoginError()
+            return
+        }
+        
+        FirebaseRegisterManager.shared.registerWithFirebase(viewController: self, userImageView: userImageView, email: email, password: password, firstName: firstName, lastName: lastName) { success in
+            if success {
+                print("kayıt başarılı")
+                self.navigationController?.popViewController(animated: true)
+                self.navigationController?.dismiss(animated: true)
+            } else {
+                print("kayıt başarısız")
+            }
+        }
+    }
     
     private func imageViewUI() {
-        view.addSubview(userImageView)
-        
+        scrollView.addSubview(userImageView)
+        userImageView.isUserInteractionEnabled = true
         userImageView.clipsToBounds = true
         userImageView.image = UIImage(systemName: "person.circle")
         userImageView.contentMode = .scaleAspectFit
@@ -91,10 +135,10 @@ class RegisterVC: UIViewController {
     }
     
     private func nameAndSurnameUI() {
-        view.addSubview(nameLabel)
-        view.addSubview(nameTF)
-        view.addSubview(surnameLabel)
-        view.addSubview(surnameTF)
+        scrollView.addSubview(nameLabel)
+        scrollView.addSubview(nameTF)
+        scrollView.addSubview(surnameLabel)
+        scrollView.addSubview(surnameTF)
         
         nameLabel.text = "Name"
         nameLabel.font = .systemFont(ofSize: 10, weight: .regular)
@@ -132,14 +176,14 @@ class RegisterVC: UIViewController {
         nameSurenameView.distribution = .fillEqually
         nameSurenameView.spacing = 15
         
-        view.addSubview(nameSurenameView)
+        scrollView.addSubview(nameSurenameView)
         nameSurenameView.anchor(top: userImageView.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 20, left: 40, bottom: 0, right: 40))
         
     }
     
     private func emailUI() {
-        view.addSubview(emailLabel)
-        view.addSubview(emailTF)
+        scrollView.addSubview(emailLabel)
+        scrollView.addSubview(emailTF)
         emailLabel.text = "Email Address"
         emailLabel.font = .systemFont(ofSize: 10, weight: .regular)
        
@@ -157,14 +201,14 @@ class RegisterVC: UIViewController {
         emailAddressView = VerticalStackView(arrangedSubviews: [
             emailLabel, emailTF
         ], spacing: 6)
-        view.addSubview(emailAddressView)
+        scrollView.addSubview(emailAddressView)
         emailAddressView.anchor(top: nameSurenameView.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 20, left: 40, bottom: 0, right: 40))
         
     }
     
     private func passwordUI() {
-        view.addSubview(passwordLabel)
-        view.addSubview(passwordTF)
+        scrollView.addSubview(passwordLabel)
+        scrollView.addSubview(passwordTF)
         passwordLabel.text = "Password"
         passwordLabel.font = .systemFont(ofSize: 10, weight: .regular)
        
@@ -190,10 +234,10 @@ class RegisterVC: UIViewController {
         ], spacing: 6)
         
         
-        view.addSubview(passwordView)
+        scrollView.addSubview(passwordView)
         passwordView.anchor(top: emailAddressView.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 20, left: 40, bottom: 0, right: 70))
         
-        view.addSubview(isSecureImage)
+        scrollView.addSubview(isSecureImage)
         isSecureImage.anchor(top: nil, leading: passwordView.trailingAnchor, bottom: nil, trailing: nil, padding: .init(top: 0, left: 10, bottom: 0, right: 0))
         isSecureImage.centerYAnchor.constraint(equalTo: passwordTF.centerYAnchor).isActive = true
     }
@@ -210,10 +254,10 @@ class RegisterVC: UIViewController {
     }
     
     private func phoneUI() {
-        view.addSubview(phoneLabel)
-        view.addSubview(countryLabel)
-        view.addSubview(phoneTF)
-        view.addSubview(countryCodeTF)
+        scrollView.addSubview(phoneLabel)
+        scrollView.addSubview(countryLabel)
+        scrollView.addSubview(phoneTF)
+        scrollView.addSubview(countryCodeTF)
         phoneLabel.text = "Phone Number"
         phoneLabel.font = .systemFont(ofSize: 10, weight: .regular)
         
@@ -251,7 +295,7 @@ class RegisterVC: UIViewController {
             ], spacing: 10, distrubiton: .fillProportionally)
         ])
         
-        view.addSubview(phoneView)
+        scrollView.addSubview(phoneView)
         phoneView.anchor(top: passwordView.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 20, left: 40, bottom: 0, right: 40))
     }
     
@@ -264,7 +308,7 @@ class RegisterVC: UIViewController {
     }
     
     private func registerBtnUI() {
-        view.addSubview(registerButton)
+        scrollView.addSubview(registerButton)
         registerButton.translatesAutoresizingMaskIntoConstraints = false
         registerButton.anchor(top: phoneView.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 30, left: 50, bottom: 0, right: 50), size: .init(width: 0, height: 60))
         registerButton.setTitle("Register", for: .normal)
@@ -276,18 +320,16 @@ class RegisterVC: UIViewController {
     
     
     func setupBackground() {
-        view.addSubview(ivBackground)
+        scrollView.addSubview(ivBackground)
         ivBackground.translatesAutoresizingMaskIntoConstraints = false
         ivBackground.anchor(top: view.topAnchor, leading: view.leadingAnchor, bottom: view.bottomAnchor, trailing: view.trailingAnchor)
         ivBackground.contentMode = .scaleAspectFill
-       // ivBackground.frame = CGRect(x: 0, y: 0, width: scrollView.contentSize.width, height: scrollView.contentSize.height)
-
         ivBackground.image = UIImage(named: "ivBack2")
     }
     
     func setupIvBack() {
         ivBack.isHidden = false
-        view.addSubview(ivBack)
+        scrollView.addSubview(ivBack)
         ivBack.translatesAutoresizingMaskIntoConstraints = false
         
         ivBack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10).isActive = true
@@ -327,4 +369,55 @@ extension RegisterVC: CountryPickerDelegate, UITextFieldDelegate {
         return updatedText.count <= 12
     }
     
+}
+
+extension RegisterVC: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    
+    func presentPhotoActionSheet() {
+        
+        let alert = UIAlertController(title: "Profile Picture", message: "How would you like to select a picture?", preferredStyle: .actionSheet)
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        alert.addAction(UIAlertAction(title: "Take Photo", style: .default, handler: { _ in
+            self.presentCamera()
+        }))
+        
+        alert.addAction(UIAlertAction(title: "Chose Photo", style: .default, handler: { _ in
+            self.presentPhotoPicker()
+        }))
+        
+        present(alert, animated: true)
+    }
+    
+    func presentCamera() {
+        let vc = UIImagePickerController()
+        vc.sourceType = .camera
+        vc.isEditing = true
+        vc.delegate = self
+        vc.allowsEditing = true
+        present(vc, animated: true)
+    }
+    
+    func presentPhotoPicker() {
+        let vc = UIImagePickerController()
+        vc.sourceType = .photoLibrary
+        vc.delegate = self
+        vc.allowsEditing = true
+        present(vc, animated: true)
+    }
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        
+        guard let selectedImage = info[UIImagePickerController.InfoKey.editedImage] as? UIImage else {
+            return
+        }
+        
+        self.userImageView.image = selectedImage
+        picker.dismiss(animated: true)
+    }
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
+    }
 }

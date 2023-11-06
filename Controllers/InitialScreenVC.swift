@@ -15,6 +15,7 @@ import JGProgressHUD
 import FirebaseAuth
 
 class InitialScreenVC: UIViewController {
+    
     private let scrollView: UIScrollView = {
        let scrollView = UIScrollView()
         scrollView.clipsToBounds = true
@@ -61,6 +62,7 @@ class InitialScreenVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
         loginObserver = NotificationCenter.default.addObserver(forName: Notification.Name.didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
             guard let strongSelf = self else { return }
             
@@ -219,7 +221,6 @@ class InitialScreenVC: UIViewController {
                 self.passwordTextField.resignFirstResponder()
                 
                 if success {
-                    print("giriş başarılı")
                     self.navigationController?.dismiss(animated: true)
                 } else {
                     print("giriş başarısız")
