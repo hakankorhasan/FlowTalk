@@ -20,12 +20,14 @@ class FirebaseRegisterManager {
     public func registerWithFirebase(viewController: UIViewController, userImageView: UIImageView? ,email: String?,
                                      password: String?,
                                      firstName: String?,
-                                     lastName: String?, completion: @escaping (Bool) -> Void) {
+                                     lastName: String?, countryCode: Int?, phoneNumber: Int?, completion: @escaping (Bool) -> Void) {
         
         guard let email = email,
               let password = password,
               let firstName = firstName,
               let lastName = lastName,
+              let phoneNumber = phoneNumber,
+              let countryCode = countryCode,
               !email.isEmpty,
               !firstName.isEmpty,
               !lastName.isEmpty,
@@ -59,7 +61,7 @@ class FirebaseRegisterManager {
                 UserDefaults.standard.setValue("\(firstName) \(lastName)", forKey: "name")
                 
                 
-                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: false, lastOnline: "")
+                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: countryCode, phoneNumber: phoneNumber, password: password, emailAddress: email, isOnline: false, lastOnline: "")
                 
                 DatabaseManager.shared.insertUser(with: chatUser) { success in
                     if success {

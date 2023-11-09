@@ -93,10 +93,16 @@ class RegisterVC: UIViewController {
     }
     
     @objc private func handleRegister() {
+        let countryCode = countryCodeTF.text ?? ""
+        let phoneNumberString = phoneTF.text ?? ""
+        let countryCodeInt = Int(countryCode) ?? 0
+        let phoneNumberInt = Int(phoneNumberString)
+        
         guard let email = emailTF.text,
               let password = passwordTF.text,
               let firstName = nameTF.text,
               let lastName = surnameTF.text,
+              //let phone = phoneNumber,
               !email.isEmpty,
               !firstName.isEmpty,
               !lastName.isEmpty,
@@ -106,7 +112,7 @@ class RegisterVC: UIViewController {
             return
         }
         
-        FirebaseRegisterManager.shared.registerWithFirebase(viewController: self, userImageView: userImageView, email: email, password: password, firstName: firstName, lastName: lastName) { success in
+        FirebaseRegisterManager.shared.registerWithFirebase(viewController: self, userImageView: userImageView, email: email, password: password, firstName: firstName, lastName: lastName, countryCode: countryCodeInt, phoneNumber: phoneNumberInt) { success in
             if success {
                 print("kayıt başarılı")
                 self.navigationController?.popViewController(animated: true)

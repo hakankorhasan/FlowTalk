@@ -72,7 +72,10 @@ extension DatabaseManager {
             "first_name": user.firstName,
             "last_name": user.lastName,
             "isOnline": user.isOnline,
-            "lastOnline": user.lastOnline
+            "lastOnline": user.lastOnline,
+            "country_code": user.countryCode,
+            "phone_number": user.phoneNumber,
+            "user_password": user.password
         ]) { [weak self] error, _ in
             
             guard let strongSelf = self else {
@@ -93,7 +96,10 @@ extension DatabaseManager {
                             "name": user.firstName + " " + user.lastName,
                             "email": user.safeEmail,
                             "isOnline": user.isOnline,
-                            "lastOnline": user.lastOnline
+                            "lastOnline": user.lastOnline,
+                            "country_code": user.countryCode,
+                            "phone_number": user.phoneNumber,
+                            "user_password": user.password
                         ]
                     ]
                     usersCollection.append(contentsOf: newElement)
@@ -113,7 +119,10 @@ extension DatabaseManager {
                             "name": user.firstName + " " + user.lastName,
                             "email": user.safeEmail,
                             "isOnline": user.isOnline,
-                            "lastOnline": user.lastOnline
+                            "lastOnline": user.lastOnline,
+                            "country_code": user.countryCode,
+                            "phone_number": user.phoneNumber,
+                            "user_password": user.password
                         ]
                     ]
                     
@@ -873,6 +882,9 @@ extension DatabaseManager {
 struct ChatAppUser {
     let firstName: String
     let lastName: String
+    let countryCode: Int
+    let phoneNumber: Int
+    let password: String
     let emailAddress: String
     var isOnline: Bool?
     var lastOnline: String?

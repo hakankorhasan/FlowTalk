@@ -49,7 +49,9 @@ class GoogleSignInManager {
                 if !exists {
                     
                     let chatUser = ChatAppUser(firstName: firstName,
-                                               lastName: lastName,
+                                               lastName: lastName, countryCode: 00,
+                                               phoneNumber: 0000000000,
+                                               password: "google-password",
                                                emailAddress: email,
                                                isOnline: isOnline,
                                                lastOnline: lastOnline)

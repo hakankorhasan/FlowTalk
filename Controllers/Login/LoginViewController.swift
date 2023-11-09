@@ -157,7 +157,7 @@ final class LoginViewController: UIViewController {
             DatabaseManager.shared.userExists(with: email) { exists in
                 if !exists {
                     //insert to database
-                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: isOnline, lastOnline: lastOnl)
+                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: 0, phoneNumber: 0000, password: "", emailAddress: email, isOnline: isOnline, lastOnline: lastOnl)
                     
                     DatabaseManager.shared.insertUser(with: chatUser) { success in
                         if success {
@@ -358,7 +358,7 @@ extension LoginViewController: LoginButtonDelegate {
             DatabaseManager.shared.userExists(with: email) { exists in
                 if !exists {
                     
-                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, emailAddress: email, isOnline: false, lastOnline: "")
+                    let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: 0, phoneNumber: 0000, password: "", emailAddress: email, isOnline: false, lastOnline: "")
                     DatabaseManager.shared.insertUser(with: chatUser) { success in
                         if success {
                          

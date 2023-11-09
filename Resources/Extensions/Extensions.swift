@@ -44,6 +44,13 @@ extension UILabel {
     }
 }
 
+extension UITextField {
+    convenience public init(placeholder: String? = nil) {
+        self.init()
+        self.placeholder = placeholder
+    }
+}
+
 extension UIButton {
     
     /// Dark mode ve light mode için farklı resimleri ayarlayan extension
