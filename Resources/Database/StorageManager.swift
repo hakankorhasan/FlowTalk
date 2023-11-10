@@ -53,6 +53,19 @@ class StorageManager {
         }
     }
     
+    public func deleteProfilePicture(fileName: String, completion: @escaping (Bool) -> Void) {
+        
+        storage.child("images/\(fileName)").delete { error in
+            if let error = error {
+                print("profile picture delete error: \(error)")
+                completion(false)
+            } else {
+                print("Dosya silindi yenisini yükleyin")
+                completion(true)
+            }
+        }
+    }
+    
     /// Upload image that will be sent in a conversation message
     public func uploadMessagePhoto(with data: Data, fileName: String, completion: @escaping UploadPicturCompletion) {
         
@@ -139,6 +152,7 @@ class StorageManager {
     public enum StorageErrors: Error {
         case FailedToUpload
         case FailedToGetDownloadUrl
+        case FailedToDeletePicture
     }
     
     public func downloadUrl(for path: String, completion: @escaping (Result<URL, Error>) -> Void) {

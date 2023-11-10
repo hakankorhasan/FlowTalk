@@ -10,6 +10,7 @@ import FirebaseDatabase
 import MessageKit
 import AVFoundation
 import CoreLocation
+import FirebaseAuth
 
 /// Manager object to read and write data to real time firebase database
 class DatabaseManager {
@@ -65,6 +66,87 @@ extension DatabaseManager {
             completion(true)
         }
         
+    }
+    
+    public func updateProfileInformation(with user: ChatAppUser, completion: @escaping (Bool) -> Void) {
+        
+        Auth.auth().currentUser?.updatePassword(to: user.password, completion: { error in
+            if let error = error {
+                print("password is not updated")
+            } else {
+                print("password is successfully updated")
+            }
+        })
+        
+        database.child(user.safeEmail).updateChildValues([
+            "first_name": user.firstName,
+            "last_name": user.lastName,
+            "isOnline": user.isOnline,
+            "lastOnline": user.lastOnline,
+            "country_code": user.countryCode,
+            "phone_number": user.phoneNumber,
+            "user_password": user.password
+        ]) { [weak self] error, _ in
+             
+            guard let strongSelf = self else {
+                return
+            }
+            
+            let userName = "\(user.firstName) \(user.lastName)"
+            UserDefaults.standard.set(userName, forKey: "name")
+            
+            guard error == nil else {
+                print("failed st write to database for updated")
+                completion(false)
+                return
+            }
+            
+            strongSelf.database.child("users").observeSingleEvent(of: .value) { [weak self] snapshot in
+                print("snapshota geldi, ", snapshot)
+                guard let strongSelf = self else {
+                    return
+                }
+                
+                if var usersCollection = snapshot.value as? [[String: Any]] {
+                    print("USERSS: ", usersCollection)
+                    
+                    for (index, existingUser) in usersCollection.enumerated() {
+                        if let email = existingUser["email"] as? String,
+                           email == user.safeEmail {
+                            // Kullanıcı bulundu güncelleme işlemine alınabilir
+                            usersCollection[index] = [
+                                "name": user.firstName + " " + user.lastName,
+                                "email": user.safeEmail,
+                                "isOnline": user.isOnline,
+                                "lastOnline": user.lastOnline,
+                                "country_code": user.countryCode,
+                                "phone_number": user.phoneNumber,
+                                "user_password": user.password
+                            ]
+                            break
+                        }
+                    }
+                    
+                    // Güncellenmiş 'usersCollection' listesini yaz
+                    strongSelf.database.child("users").setValue(usersCollection) { error, _ in
+                        guard error == nil else {
+                            print("failed to write updated 'usersCollection' to database")
+                            completion(false)
+                            return
+                        }
+                                       
+                        print("successfully updated 'usersCollection'")
+                            completion(true)
+                    }
+                } else {
+                    print("failed to get 'usersCollection' from database")
+                    completion(false)
+                }
+            }
+        }
+        
+        
+
     }
     
     public func insertUser(with user: ChatAppUser, completion: @escaping (Bool) -> Void) {
@@ -775,9 +857,6 @@ extension DatabaseManager {
             }
         }
 
-        
-        
-        
     }
     
     public func conversationExists(iwth targetRecipientEmail: String, completion: @escaping (Result<String, Error>) -> Void) {

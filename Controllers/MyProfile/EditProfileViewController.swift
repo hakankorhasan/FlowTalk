@@ -7,6 +7,8 @@
 
 import UIKit
 import CountryPicker
+import FirebaseAuth
+import JGProgressHUD
 
 class EditProfileViewController: UIViewController {
     
@@ -16,12 +18,15 @@ class EditProfileViewController: UIViewController {
         return scrollView
     }()
     
+    private let spinner = JGProgressHUD()
+    
     private let profileImageView: UIImageView = {
        let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
         iv.layer.cornerRadius = 50
         iv.layer.masksToBounds = true
         iv.backgroundColor = .gray
+        iv.isUserInteractionEnabled = true
         return iv
     }()
     
@@ -75,6 +80,9 @@ class EditProfileViewController: UIViewController {
     var labelTextFieldPairs: [(label: UILabel, textField: UITextField)] = []
     private var labelInitialYPositions = [UILabel: CGFloat]()
     
+    var name, surname, pass: String?
+    var countryCd, phoneNum: Int?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Edit Profile"
@@ -85,6 +93,8 @@ class EditProfileViewController: UIViewController {
         let customBackButton = UIBarButtonItem(customView: backButton)
         backButton.tintColor = .black
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        
+        spinner.textLabel.text = "Your information is being updated. Please wait!"
         
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.leftBarButtonItem = customBackButton
@@ -179,6 +189,7 @@ class EditProfileViewController: UIViewController {
                 guard let userData = data as? [String: Any],
                       let firstName = userData["first_name"] as? String,
                       let lastName = userData["last_name"] as? String,
+                      let password = userData["user_password"] as? String,
                       let countryCode = userData["country_code"] as? Int,
                       let phoneNumber = userData ["phone_number"] as? Int else {
                     return
@@ -193,6 +204,11 @@ class EditProfileViewController: UIViewController {
                     self?.phoneTextField.placeholder = phoneNumberString
                 }
                 
+                self?.name = firstName
+                self?.surname = lastName
+                self?.pass = password
+                self?.countryCd = countryCode
+                self?.phoneNum = phoneNumber
             case .failure(let error):
                 print("result data for edit profile page: \(error)")
             }
@@ -211,18 +227,147 @@ class EditProfileViewController: UIViewController {
         
     }
     
+    var filledFields: [String] = []
+    
     @objc private func handleSave() {
-        guard let firstName = nameTextField.text,
-              let lastName = surnameTextField.text,
-              let password = passwordTextField.text,
-              let phone = phoneTextField.text,
-              !firstName.isEmpty,
-              !lastName.isEmpty,
-              !password.isEmpty,
-              !phone.isEmpty else {
-            showAlertDialog()
+        
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
             return
         }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUser)
+      
+        guard var firstName = nameTextField.text else { return }
+        guard var lastName = surnameTextField.text else { return }
+        guard var password = passwordTextField.text else { return }
+        guard var countryCodeText = countryCodeTextField.text else { return }
+        guard var phoneText = phoneTextField.text else { return }
+        var countryCode = Int(countryCodeText)
+        var phone = Int(phoneText)
+        
+        // Dolu olan alanları kontrol et
+        //var filledFields: [String] = []
+
+        if !firstName.isEmpty && firstName != nameTextField.placeholder {
+            filledFields.append("Name")
+        } else {
+            firstName = name ?? ""
+        }
+
+        if !lastName.isEmpty && lastName != surnameTextField.placeholder {
+            filledFields.append("Surname")
+        } else {
+            lastName = surname ?? ""
+        }
+
+        if countryCode != nil || phone != nil {
+            filledFields.append("Phone Number")
+        } else {
+            countryCode = countryCd ?? 0
+            phone = phoneNum ?? 0
+        }
+
+        if !password.isEmpty {
+            filledFields.append("Password")
+        } else {
+            password = pass ?? ""
+        }
+        
+        let filledFieldsMessage: String
+        filledFieldsMessage = filledFields.joined(separator: ", ") + " information will be updated. Are you sure?"
+        
+        if !filledFields.isEmpty {
+            let alert = UIAlertController(title: "Changes", message: filledFieldsMessage, preferredStyle: .alert)
+            
+            alert.addAction(UIAlertAction(title: "Yes", style: .default, handler: { _ in
+                self.spinner.show(in: self.view, animated: true)
+                let userInfo = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: countryCode ?? 0, phoneNumber: phone ?? 0, password: password, emailAddress: safeEmail, isOnline: true, lastOnline: "")
+                
+                let user = Auth.auth().currentUser
+                let credential = EmailAuthProvider.credential(withEmail: currentUser, password: password)
+            
+                user?.reauthenticate(with: credential, completion: { authResult, error in
+                    if error != nil {
+                        print("reauthenticate başarısız")
+                    }else {
+                        print("reauthenticate edildi")
+                    }
+                })
+                
+                DatabaseManager.shared.updateProfileInformation(with: userInfo) { success in
+                    
+                    if success {
+                        guard let image = self.profileImageView.image,
+                                let data = image.pngData() else {
+                            return
+                        }
+
+                        let fileName = userInfo.profilePictureFileName
+
+                        // Bir DispatchGroup oluşturuyoruz. Bu grup, birden fazla asenkron işlemi gruplandırmamıza
+                        // ve işlemlerin tamamlandığını takip etmemize olanak tanır.
+                        let group = DispatchGroup()
+
+                        // group.enter() ile Dispatch Group'a bir işlem eklenir ve işlem tamamlandığında group.leave() ile bu işlem tamamlandığı belirtilir.
+                        // Profil resminin silinme işlemi bir asenkron işlem olduğu için defer kullanarak işlem tamamlandığında group.leave() otomatik olarak çağrılır.
+                        group.enter()
+                        StorageManager.shared.deleteProfilePicture(fileName: fileName) { success in
+                            defer {
+                                group.leave()
+                            }
+
+                            if success {
+                                print("var olan resim silindi")
+                            } else {
+                                print("varolan resim silinemedi")
+                            }
+                        }
+
+                        // group.notify kısmı, Dispatch Group içindeki tüm işlemler tamamlandığında çalışan bir kapanış bloğudur.
+                        // Profil resmi silme işlemi ve profil resmi yükleme işlemi bu kapanış bloğu içine alınmıştır.
+                        // Bu sayede, önce varolan resmin silinmesi beklenir, sonra yeni resmin yüklenmesi gerçekleşir.
+                        group.notify(queue: .main) {
+                            // Grup içindeki tüm işlemler tamamlandığında bu kısım çalışır
+                            print("Tüm işlemler tamamlandı")
+
+                            // Yeni resmi yükleme işlemi
+                            group.enter()
+                            StorageManager.shared.uploadProfilePicture(with: data, fileName: fileName) { result in
+                                defer {
+                                    group.leave()
+                                }
+
+                                switch result {
+                                case .success(let downloadUrl):
+                                    print("DOWNLOAD URL: \(downloadUrl)")
+                                    UserDefaults.standard.set(downloadUrl, forKey: "profile_picture_url")
+                                    // Burada sadece profil resmi yüklendikten sonra yapılmasını istediğiniz işlemleri ekleyebilirsiniz
+                                    self.spinner.dismiss(animated: true)
+                                    if let profileViewController = self.navigationController?.viewControllers.first(where: { $0 is ProfileViewController }) as? ProfileViewController {
+                                           profileViewController.viewDidLoad()
+                                       }
+                                    self.tabBarController?.tabBar.isHidden = false
+                                    self.navigationController?.popViewController(animated: true)
+                                case .failure(let error):
+                                    print("profile picture upload error: \(error)")
+                                }
+                            }
+                        }
+                    } else {
+                        print("güncellenemedi")
+                    }
+                }
+            }))
+            
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+            cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
+            alert.addAction(cancelAction)
+            
+            present(alert, animated: true)
+        } else {
+           showAlertDialog()
+        }
+        
               
     }
     
@@ -334,10 +479,15 @@ extension EditProfileViewController {
     
     private func setupImageView() {
         scrollView.addSubview(profileImageView)
+        
+       // let gesture = UITapGestureRecognizer(target: self, action: #selector(presentPhotoActionSheet))
+       // profileImageView.addGestureRecognizer(gesture)
+        
         profileImageView.anchor(top: view.safeAreaLayoutGuide.topAnchor, leading: nil, bottom: nil, trailing: nil, padding: .init(top: 20, left: 0, bottom: 0, right: 0), size: .init(width: 100, height: 100))
         profileImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
         
         scrollView.addSubview(button)
+        button.addTarget(self, action: #selector(presentPhotoActionSheet), for: .touchUpInside)
         button.anchor(top: nil, leading: nil, bottom: profileImageView.bottomAnchor, trailing: profileImageView.trailingAnchor, padding: .init(top: 0, left: 0, bottom: 5, right: 5), size: .init(width: 24, height: 24))
     }
     
@@ -410,6 +560,7 @@ extension EditProfileViewController {
         lineViewConfirmPassword.translatesAutoresizingMaskIntoConstraints = false
         lineViewConfirmPassword.heightAnchor.constraint(equalToConstant: 0.33).isActive = true
         
+        confirmPasswordTextField.isSecureTextEntry = true
         confirmPasswordStackView = VerticalStackView(arrangedSubviews: [
             confirmPasswordLabel,
             HorizontalStackView(arrangedSubviews: [confirmPasswordTextField, isSecureImage2], spacing: 20, distrubiton: .fill),
@@ -472,5 +623,61 @@ extension EditProfileViewController {
         saveButton.anchor(top: phoneStackView.bottomAnchor, leading: nil, bottom: nil, trailing: nil, padding: .init(top: 50, left: 0, bottom: 0, right: 0), size: .init(width: 120, height: 40))
         saveButton.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
         
+    }
+}
+
+extension EditProfileViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    
+    @objc func presentPhotoActionSheet() {
+        
+        let alert = UIAlertController(title: "Profile Picture", message: "How would you like to select a picture?", preferredStyle: .actionSheet)
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
+        alert.addAction(cancelAction)
+        
+        let takeAction = UIAlertAction(title: "Take Photo", style: .default) { _ in
+            self.presentCamera()
+        }
+        alert.addAction(takeAction)
+        
+        let choseAction = UIAlertAction(title: "Chose Photo", style: .default) { _ in
+            self.presentPhotoPicker()
+        }
+        alert.addAction(choseAction)
+        
+        present(alert, animated: true)
+    }
+    
+    func presentCamera() {
+        let vc = UIImagePickerController()
+        vc.sourceType = .camera
+        vc.isEditing = true
+        vc.delegate = self
+        vc.allowsEditing = true
+        present(vc, animated: true)
+    }
+    
+    func presentPhotoPicker() {
+        let vc = UIImagePickerController()
+        vc.sourceType = .photoLibrary
+        vc.delegate = self
+        vc.allowsEditing = true
+        present(vc, animated: true)
+    }
+    
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        
+        guard let selectedImage = info[UIImagePickerController.InfoKey.editedImage] as? UIImage else {
+            return
+        }
+        
+        self.profileImageView.image = selectedImage
+        self.filledFields.append("Profile picture")
+        picker.dismiss(animated: true)
+    }
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
     }
 }

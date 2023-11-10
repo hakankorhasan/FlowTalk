@@ -18,13 +18,14 @@ final class ProfileViewController: UIViewController {
 
     var data = [ProfileViewModel]()
     
+    var label = UILabel()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         tableView.register(ProfileTableViewCell.self, forCellReuseIdentifier: ProfileTableViewCell.identifier)
         tableView.separatorStyle = .none
-      
-        dataArrayUpdate()
         
+        dataArrayUpdate()
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         tableView.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         
@@ -32,12 +33,8 @@ final class ProfileViewController: UIViewController {
         tableView.delegate = self
         tableView.dataSource = self
         tableView.tableHeaderView = createTableHeader()
-       
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        print("will appear çalıştı")
+        label.text = "\(UserDefaults.standard.value(forKey: "name") as? String ?? "No name")"
+
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -135,7 +132,7 @@ final class ProfileViewController: UIViewController {
                                                   width: 100,
                                                   height: 100))
         
-        let label = UILabel(frame: CGRect(x: 0, 
+        label = UILabel(frame: CGRect(x: 0,
                                           y: 130,
                                           width: self.view.width,
                                           height: 30))
@@ -155,6 +152,7 @@ final class ProfileViewController: UIViewController {
         StorageManager.shared.downloadUrl(for: path) { result in
             switch result {
             case .success(let url):
+                print("Profile view URL: \(url)")
                 imageView.sd_setImage(with: url)
             case .failure(let error):
                 print("Failed to get download url: \(error)")
@@ -188,4 +186,5 @@ extension ProfileViewController: UITableViewDelegate, UITableViewDataSource {
 
    
 }
+
 
