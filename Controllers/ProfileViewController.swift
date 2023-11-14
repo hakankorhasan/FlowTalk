@@ -29,7 +29,6 @@ final class ProfileViewController: UIViewController {
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         tableView.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
         tableView.delegate = self
         tableView.dataSource = self
         tableView.tableHeaderView = createTableHeader()
@@ -99,6 +98,7 @@ final class ProfileViewController: UIViewController {
         
         data.append(ProfileViewModel(viewModelType: .info, title: "Settings", titleResult: "wheel", handler: {
             let settingsVC = SettingsViewController()
+            settingsVC.navigationItem.hidesBackButton = true
             self.navigationController?.pushViewController(settingsVC, animated: true)
         }, padding: 20))
         
@@ -162,6 +162,20 @@ final class ProfileViewController: UIViewController {
         return headerView
         
     }
+    
+    private func animateCellSelection(at indexPath: IndexPath) {
+        guard let cell = tableView.cellForRow(at: indexPath) else { return }
+
+        UIView.animate(withDuration: 0.2, animations: {
+            cell.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
+            
+        }) { _ in
+            UIView.animate(withDuration: 0.2) {
+                cell.transform = .identity
+                
+            }
+        }
+    }
 
 }
 
@@ -180,7 +194,9 @@ extension ProfileViewController: UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        animateCellSelection(at: indexPath)
         data[indexPath.row].handler?()
+       
     }
     
 

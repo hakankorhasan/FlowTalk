@@ -20,23 +20,8 @@ class EditProfileViewController: UIViewController {
     
     private let spinner = JGProgressHUD()
     
-    private let profileImageView: UIImageView = {
-       let iv = UIImageView()
-        iv.contentMode = .scaleAspectFill
-        iv.layer.cornerRadius = 50
-        iv.layer.masksToBounds = true
-        iv.backgroundColor = .gray
-        iv.isUserInteractionEnabled = true
-        return iv
-    }()
-    
-    private let button: UIButton = {
-       let btn = UIButton()
-        btn.backgroundColor = .black
-        btn.layer.cornerRadius = 12
-        btn.setImage(UIImage(named: "edit-5"), for: .normal)
-        return btn
-    }()
+    private let profileImageView = UIImageView()
+    private let editPhotoButton = UIButton()
     
     private let nameLabel = UILabel(text: "Name", font: .systemFont(ofSize: 12, weight: .regular))
     private let nameTextField = UITextField(placeholder: "Name")
@@ -228,6 +213,7 @@ class EditProfileViewController: UIViewController {
     }
     
     var filledFields: [String] = []
+    var isSelectImg: Bool = false
     
     @objc private func handleSave() {
         
@@ -294,64 +280,18 @@ class EditProfileViewController: UIViewController {
                     }
                 })
                 
-                DatabaseManager.shared.updateProfileInformation(with: userInfo) { success in
+                DatabaseManager.shared.updateProfileInformation(with: userInfo) { [self] success in
                     
                     if success {
-                        guard let image = self.profileImageView.image,
-                                let data = image.pngData() else {
-                            return
-                        }
-
-                        let fileName = userInfo.profilePictureFileName
-
-                        // Bir DispatchGroup oluşturuyoruz. Bu grup, birden fazla asenkron işlemi gruplandırmamıza
-                        // ve işlemlerin tamamlandığını takip etmemize olanak tanır.
-                        let group = DispatchGroup()
-
-                        // group.enter() ile Dispatch Group'a bir işlem eklenir ve işlem tamamlandığında group.leave() ile bu işlem tamamlandığı belirtilir.
-                        // Profil resminin silinme işlemi bir asenkron işlem olduğu için defer kullanarak işlem tamamlandığında group.leave() otomatik olarak çağrılır.
-                        group.enter()
-                        StorageManager.shared.deleteProfilePicture(fileName: fileName) { success in
-                            defer {
-                                group.leave()
-                            }
-
-                            if success {
-                                print("var olan resim silindi")
-                            } else {
-                                print("varolan resim silinemedi")
-                            }
-                        }
-
-                        // group.notify kısmı, Dispatch Group içindeki tüm işlemler tamamlandığında çalışan bir kapanış bloğudur.
-                        // Profil resmi silme işlemi ve profil resmi yükleme işlemi bu kapanış bloğu içine alınmıştır.
-                        // Bu sayede, önce varolan resmin silinmesi beklenir, sonra yeni resmin yüklenmesi gerçekleşir.
-                        group.notify(queue: .main) {
-                            // Grup içindeki tüm işlemler tamamlandığında bu kısım çalışır
-                            print("Tüm işlemler tamamlandı")
-
-                            // Yeni resmi yükleme işlemi
-                            group.enter()
-                            StorageManager.shared.uploadProfilePicture(with: data, fileName: fileName) { result in
-                                defer {
-                                    group.leave()
-                                }
-
-                                switch result {
-                                case .success(let downloadUrl):
-                                    print("DOWNLOAD URL: \(downloadUrl)")
-                                    UserDefaults.standard.set(downloadUrl, forKey: "profile_picture_url")
-                                    // Burada sadece profil resmi yüklendikten sonra yapılmasını istediğiniz işlemleri ekleyebilirsiniz
-                                    self.spinner.dismiss(animated: true)
-                                    if let profileViewController = self.navigationController?.viewControllers.first(where: { $0 is ProfileViewController }) as? ProfileViewController {
-                                           profileViewController.viewDidLoad()
-                                       }
-                                    self.tabBarController?.tabBar.isHidden = false
-                                    self.navigationController?.popViewController(animated: true)
-                                case .failure(let error):
-                                    print("profile picture upload error: \(error)")
-                                }
-                            }
+                        
+                        if isSelectImg {
+                            updateProfilePicture(user: userInfo)
+                        } else {
+                            if let profileViewController = self.navigationController?.viewControllers.first(where: { $0 is ProfileViewController }) as? ProfileViewController {
+                                   profileViewController.viewDidLoad()
+                               }
+                            self.tabBarController?.tabBar.isHidden = false
+                            self.navigationController?.popViewController(animated: true)
                         }
                     } else {
                         print("güncellenemedi")
@@ -369,6 +309,65 @@ class EditProfileViewController: UIViewController {
         }
         
               
+    }
+    
+    private func updateProfilePicture(user: ChatAppUser) {
+        guard let image = self.profileImageView.image,
+                let data = image.pngData() else {
+            return
+        }
+
+        let fileName = user.profilePictureFileName
+
+        // Bir DispatchGroup oluşturuyoruz. Bu grup, birden fazla asenkron işlemi gruplandırmamıza
+        // ve işlemlerin tamamlandığını takip etmemize olanak tanır.
+        let group = DispatchGroup()
+
+        // group.enter() ile Dispatch Group'a bir işlem eklenir ve işlem tamamlandığında group.leave() ile bu işlem tamamlandığı belirtilir.
+        // Profil resminin silinme işlemi bir asenkron işlem olduğu için defer kullanarak işlem tamamlandığında group.leave() otomatik olarak çağrılır.
+        group.enter()
+        StorageManager.shared.deleteProfilePicture(fileName: fileName) { success in
+            defer {
+                group.leave()
+            }
+
+            if success {
+                print("var olan resim silindi")
+            } else {
+                print("varolan resim silinemedi")
+            }
+        }
+
+        // group.notify kısmı, Dispatch Group içindeki tüm işlemler tamamlandığında çalışan bir kapanış bloğudur.
+        // Profil resmi silme işlemi ve profil resmi yükleme işlemi bu kapanış bloğu içine alınmıştır.
+        // Bu sayede, önce varolan resmin silinmesi beklenir, sonra yeni resmin yüklenmesi gerçekleşir.
+        group.notify(queue: .main) {
+            // Grup içindeki tüm işlemler tamamlandığında bu kısım çalışır
+            print("Tüm işlemler tamamlandı")
+
+            // Yeni resmi yükleme işlemi
+            group.enter()
+            StorageManager.shared.uploadProfilePicture(with: data, fileName: fileName) { result in
+                defer {
+                    group.leave()
+                }
+
+                switch result {
+                case .success(let downloadUrl):
+                    print("DOWNLOAD URL: \(downloadUrl)")
+                    UserDefaults.standard.set(downloadUrl, forKey: "profile_picture_url")
+                    // Burada sadece profil resmi yüklendikten sonra yapılmasını istediğiniz işlemleri ekleyebilirsiniz
+                    self.spinner.dismiss(animated: true)
+                    if let profileViewController = self.navigationController?.viewControllers.first(where: { $0 is ProfileViewController }) as? ProfileViewController {
+                           profileViewController.viewDidLoad()
+                       }
+                    self.tabBarController?.tabBar.isHidden = false
+                    self.navigationController?.popViewController(animated: true)
+                case .failure(let error):
+                    print("profile picture upload error: \(error)")
+                }
+            }
+        }
     }
     
     private func showAlertDialog() {
@@ -478,6 +477,12 @@ extension EditProfileViewController: CountryPickerDelegate {
 extension EditProfileViewController {
     
     private func setupImageView() {
+        
+        profileImageView.contentMode = .scaleAspectFill
+        profileImageView.layer.cornerRadius = 50
+        profileImageView.layer.masksToBounds = true
+        profileImageView.backgroundColor = .gray
+        profileImageView.isUserInteractionEnabled = true
         scrollView.addSubview(profileImageView)
         
        // let gesture = UITapGestureRecognizer(target: self, action: #selector(presentPhotoActionSheet))
@@ -486,9 +491,12 @@ extension EditProfileViewController {
         profileImageView.anchor(top: view.safeAreaLayoutGuide.topAnchor, leading: nil, bottom: nil, trailing: nil, padding: .init(top: 20, left: 0, bottom: 0, right: 0), size: .init(width: 100, height: 100))
         profileImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
         
-        scrollView.addSubview(button)
-        button.addTarget(self, action: #selector(presentPhotoActionSheet), for: .touchUpInside)
-        button.anchor(top: nil, leading: nil, bottom: profileImageView.bottomAnchor, trailing: profileImageView.trailingAnchor, padding: .init(top: 0, left: 0, bottom: 5, right: 5), size: .init(width: 24, height: 24))
+        editPhotoButton.backgroundColor = .black
+        editPhotoButton.layer.cornerRadius = 12
+        editPhotoButton.setImage(UIImage(named: "edit-5"), for: .normal)
+        scrollView.addSubview(editPhotoButton)
+        editPhotoButton.addTarget(self, action: #selector(presentPhotoActionSheet), for: .touchUpInside)
+        editPhotoButton.anchor(top: nil, leading: nil, bottom: profileImageView.bottomAnchor, trailing: profileImageView.trailingAnchor, padding: .init(top: 0, left: 0, bottom: 5, right: 5), size: .init(width: 24, height: 24))
     }
     
     private func setupNameStack() {
@@ -674,10 +682,15 @@ extension EditProfileViewController: UIImagePickerControllerDelegate, UINavigati
         
         self.profileImageView.image = selectedImage
         self.filledFields.append("Profile picture")
+        self.isSelectImg = true
         picker.dismiss(animated: true)
     }
     
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        if isSelectImg {
+            
+            print("fotoğraf seçildi isSelecti false yapma")
+        }
         picker.dismiss(animated: true)
     }
 }
