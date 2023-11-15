@@ -30,6 +30,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
+        
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        DatabaseManager.shared.fetchUserSettings(safeEmail: currentUser, isCurrentUser: true) { }
+        
         DatabaseReference.setUserOnlineStatus(isOnline: true, lastOnline: "")
     }
 

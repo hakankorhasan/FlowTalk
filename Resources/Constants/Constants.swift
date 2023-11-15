@@ -12,6 +12,7 @@ var lastOnlineConstant = Util.getStringFromDate(format: "HH:mm dd/MM/YYYY", date
 var isRoomIn: Bool = false
 var converId: String?
 
+
 struct Const {
     /// Image height/width for Large NavBar state
     static let ImageSizeForLargeState: CGFloat = 40

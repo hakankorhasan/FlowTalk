@@ -85,7 +85,13 @@ extension DatabaseManager {
             "lastOnline": user.lastOnline,
             "country_code": user.countryCode,
             "phone_number": user.phoneNumber,
-            "user_password": user.password
+            "user_password": user.password,
+            "user_settings": [
+                "isOpenReadInfo": isCurrentReadInfo,
+                "isOpenLastseenInfo": isCurrentLastSeenInfo,
+                "isHiddenPF": isCurrentPF,
+                "isOpenOnlineInfo": isCurrentOnlineInfo,
+            ]
         ]) { [weak self] error, _ in
              
             guard let strongSelf = self else {
@@ -121,7 +127,13 @@ extension DatabaseManager {
                                 "lastOnline": user.lastOnline,
                                 "country_code": user.countryCode,
                                 "phone_number": user.phoneNumber,
-                                "user_password": user.password
+                                "user_password": user.password,
+                                "user_settings": [
+                                    "isOpenReadInfo": isCurrentReadInfo,
+                                    "isOpenLastseenInfo": isCurrentLastSeenInfo,
+                                    "isHiddenPF": isCurrentPF,
+                                    "isOpenOnlineInfo": isCurrentOnlineInfo,
+                                ]
                             ]
                             break
                         }
@@ -157,7 +169,13 @@ extension DatabaseManager {
             "lastOnline": user.lastOnline,
             "country_code": user.countryCode,
             "phone_number": user.phoneNumber,
-            "user_password": user.password
+            "user_password": user.password,
+            "user_settings": [
+                "isOpenReadInfo": isCurrentReadInfo,
+                "isOpenLastseenInfo": isCurrentLastSeenInfo,
+                "isHiddenPF": isCurrentPF,
+                "isOpenOnlineInfo": isCurrentOnlineInfo,
+            ]
         ]) { [weak self] error, _ in
             
             guard let strongSelf = self else {
@@ -181,7 +199,13 @@ extension DatabaseManager {
                             "lastOnline": user.lastOnline,
                             "country_code": user.countryCode,
                             "phone_number": user.phoneNumber,
-                            "user_password": user.password
+                            "user_password": user.password,
+                            "user_settings": [
+                                "isOpenReadInfo": isCurrentReadInfo,
+                                "isOpenLastseenInfo": isCurrentLastSeenInfo,
+                                "isHiddenPF": isCurrentPF,
+                                "isOpenOnlineInfo": isCurrentOnlineInfo,
+                            ]
                         ]
                     ]
                     usersCollection.append(contentsOf: newElement)
@@ -204,7 +228,13 @@ extension DatabaseManager {
                             "lastOnline": user.lastOnline,
                             "country_code": user.countryCode,
                             "phone_number": user.phoneNumber,
-                            "user_password": user.password
+                            "user_password": user.password,
+                            "user_settings": [
+                                "isOpenReadInfo": isCurrentReadInfo,
+                                "isOpenLastseenInfo": isCurrentLastSeenInfo,
+                                "isHiddenPF": isCurrentPF,
+                                "isOpenOnlineInfo": isCurrentOnlineInfo,
+                            ]
                         ]
                     ]
                     
@@ -220,6 +250,85 @@ extension DatabaseManager {
             }
             
         }
+    }
+    
+    /// Get user settings
+    public func fetchUserSettings(safeEmail: String, isCurrentUser: Bool, completion: @escaping () -> Void) {
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: safeEmail)
+        let usersRef = Database.database().reference().child("users")
+        
+        
+        usersRef.observeSingleEvent(of: .value) { snapshot, error in
+            if let error = error {
+                print("Error fetching user data: \(error)")
+                return
+            }
+            
+            guard let usersDataArray = snapshot.value as? [Any] else {
+                print("User data not found in snapshot")
+                return
+            }
+            
+            var currentUserFound = false
+            
+            
+            for case let userDataDict as [String: Any] in usersDataArray {
+                // Her bir kullanıcı verisinin içinde dolaşabilirsiniz.
+                if let email = userDataDict["email"] as? String,
+                    email == safeEmail,
+                    let userSettings = userDataDict["user_settings"] as? [String: Any] {
+                    
+                    if isCurrentUser {
+                        
+                        if let lastseen = userSettings["isOpenLastseenInfo"] as? Bool {
+                            isCurrentLastSeenInfo = lastseen
+                        }
+                        
+                        if let online = userSettings["isOpenOnlineInfo"] as? Bool {
+                            isCurrentOnlineInfo = online
+                        }
+                        
+                        if let read = userSettings["isOpenReadInfo"] as? Bool {
+                            isCurrentReadInfo = read
+                        }
+                        
+                        if let profileHidden = userSettings["isHiddenPF"] as? Bool {
+                            isCurrentPF = profileHidden
+                        }
+                        
+                        currentUserFound = true
+                        
+                    } else {
+                        if let lastseen = userSettings["isOpenLastseenInfo"] as? Bool {
+                            isOtherLastSeenInfo = lastseen
+                        }
+                        
+                        if let online = userSettings["isOpenOnlineInfo"] as? Bool {
+                            isOtherOnlineInfo = online
+                        }
+                        
+                        if let read = userSettings["isOpenReadInfo"] as? Bool {
+                            isOtherReadInfo = read
+                        }
+                        
+                        if let profileHidden = userSettings["isHiddenPF"] as? Bool {
+                            isOtherPF = profileHidden
+                        }
+                        
+                        currentUserFound = true
+                    }
+            
+                }
+               
+            }
+            
+            if currentUserFound {
+                completion()
+            }
+            
+        }
+       
     }
     
     /// Gets all users from database

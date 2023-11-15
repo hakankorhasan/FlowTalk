@@ -51,7 +51,6 @@ class PrivacyTableViewCell: UITableViewCell {
         contentView.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
        
-        switchButton.isOn = true
         addSubview(title)
         addSubview(titleContent)
         addSubview(switchButton)
@@ -67,7 +66,6 @@ class PrivacyTableViewCell: UITableViewCell {
         switchButton.translatesAutoresizingMaskIntoConstraints = false
         switchButton.anchor(top: nil, leading: nil, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 0, bottom: 0, right: 10), size: .init(width: 41, height: 25))
         switchButton.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true
-        
         contentView.layer.cornerRadius = 12
         layer.cornerRadius = 12
     }

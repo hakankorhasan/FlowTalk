@@ -17,7 +17,6 @@ class NotificationSettingVC: UIViewController {
     let selectedRingtone = UILabel(text: "Default", font: .systemFont(ofSize: 11, weight: .regular), textColor: .darkGray)
     let selectedVibrationCall = UILabel(text: "Default", font: .systemFont(ofSize: 11, weight: .regular), textColor: .darkGray)
     
-    
     var chatVoiceStackView = UIStackView()
     var messagesStackView = UIStackView()
     var callsStackView = UIStackView()
