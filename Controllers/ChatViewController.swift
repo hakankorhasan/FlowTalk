@@ -198,11 +198,29 @@ final class ChatViewController: MessagesViewController {
     
     var conversationPath = ""
     override func viewWillAppear(_ animated: Bool) {
+        
+        DatabaseManager.shared.fetchUserSettings(safeEmail: otherUserEmail, isCurrentUser: false) {
+            if isOtherOnlineInfo {
+                self.onlineDotView.isHidden = false
+                //self.onlineTextLabel.isHidden = false
+            } else {
+                self.onlineDotView.isHidden = true
+               // self.onlineTextLabel.isHidden = true
+            }
+            
+            if isOtherPF {
+                self.userImageView.isHidden = false
+            } else {
+                self.userImageView.image = UIImage(systemName: "person.fill")
+                self.userImageView.tintColor = .darkGray
+            }
+        }
+        
         let databaseRef = Database.database().reference()
         let safeEmail = DatabaseManager.safeEmail(emaildAddress: selfSender?.senderId ?? "")
         let safeOther = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
         conversationPath = "conversation_From\(safeEmail)_Tomk\(safeOther)"
-
+ 
         // Belirli bir çocuk düğümün varlığını sorgula
         let childRef = databaseRef.child(conversationPath)
 
@@ -307,20 +325,26 @@ final class ChatViewController: MessagesViewController {
         }
     }
     
+    
     private func isOnlineCheck(isOnline: Bool, lastOnline: String) {
-        if isOnline {
-            UIView.animate(withDuration: 0.2) {
-                self.onlineDotView.backgroundColor = .green
-                self.onlineTextLabel.text = "Online"
-                self.userImageView.layer.borderColor = UIColor.green.cgColor
-            }
-        } else {
-            UIView.animate(withDuration: 0.2) {
-                self.onlineDotView.backgroundColor = .lightGray
-                self.onlineTextLabel.text = "Last seen: " + lastOnline
-                self.userImageView.layer.borderColor = UIColor.lightGray.cgColor
-            }
-        }
+        
+         if isOnline {
+             UIView.animate(withDuration: 0.2) {
+                 self.onlineDotView.backgroundColor = .green
+                 if isOtherOnlineInfo {
+                     self.onlineTextLabel.text = "Online"
+                 } else {
+                     self.onlineTextLabel.text = ""
+                 }
+                 
+             }
+         } else {
+             UIView.animate(withDuration: 0.2) {
+                 self.onlineDotView.backgroundColor = .lightGray
+                 self.onlineTextLabel.text = "Last seen: " + lastOnline
+             }
+         }
+        
     }
     
     private let videoCallButton: UIButton = {
@@ -361,8 +385,8 @@ final class ChatViewController: MessagesViewController {
         
         onlineTextLabel.font = .systemFont(ofSize: 12, weight: .regular)
         
-        if let otherUserPhotoURL = self.otherUserPhotoURL {
-            userImageView.sd_setImage(with: otherUserPhotoURL)
+        if let otherUserPhotoURL = self.otherUserPhotoURL, isOtherPF {
+              userImageView.sd_setImage(with: otherUserPhotoURL)
         } else {
             let email = self.otherUserEmail
             let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
@@ -372,7 +396,12 @@ final class ChatViewController: MessagesViewController {
                 case .success(let url):
                     DispatchQueue.main.async {
                         self?.otherUserPhotoURL = url
-                        self?.userImageView.sd_setImage(with: url)
+                        if isOtherPF {
+                            self?.userImageView.sd_setImage(with: url)
+                        } else {
+                            self?.userImageView.image = UIImage(systemName: "person.fill")
+                        }
+                        
                     }
                 case .failure(let error):
                    // self?.userImageView.image = UIImage(systemName: "questionmark")
@@ -384,8 +413,8 @@ final class ChatViewController: MessagesViewController {
         userImageView.layer.cornerRadius = Const.ImageSizeForLargeState / 2
         userImageView.clipsToBounds = true
         userImageView.contentMode = .scaleAspectFill
-        userImageView.layer.borderColor = UIColor.white.cgColor
-        userImageView.layer.borderWidth = 1.5
+        userImageView.layer.borderColor = UIColor.lightGray.cgColor
+        userImageView.layer.borderWidth = 1.0
         userImageView.translatesAutoresizingMaskIntoConstraints = false
         userImageView.heightAnchor.constraint(equalToConstant: 40).isActive = true
         userImageView.widthAnchor.constraint(equalToConstant: 40).isActive = true
@@ -770,7 +799,7 @@ final class ChatViewController: MessagesViewController {
         
         let attachment = NSTextAttachment()
         attachment.image = UIImage(named: "notRead")
-        if let isRead = message.isRead, isRead == true {
+        if let isRead = message.isRead, isRead == true, isCurrentReadInfo, isOtherReadInfo {
             UIView.animate(withDuration: 0.2) {
                 print(message)
                 attachment.image = UIImage(named: "read")

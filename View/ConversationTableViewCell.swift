@@ -124,15 +124,21 @@ class ConversationTableViewCell: UITableViewCell {
         let path = "images/\(model.otherUserEmail)_profile_picture.png"
         
         
-        StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-            switch result {
-            case .success(let url):
-                DispatchQueue.main.async {
-                    self?.userImageView.sd_setImage(with: url)
+        if isOtherPF {
+            StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                switch result {
+                case .success(let url):
+                    DispatchQueue.main.async {
+                        self?.userImageView.sd_setImage(with: url)
+                    }
+                case .failure(let error):
+                    print("failed to get image: ",error)
                 }
-            case .failure(let error):
-                print("failed to get image: ",error)
             }
+        } else {
+            self.userImageView.image = UIImage(systemName: "person.fill")
+            self.userImageView.tintColor = .darkGray
         }
+        
     }
 }

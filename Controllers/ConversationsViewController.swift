@@ -51,18 +51,21 @@ final class ConversationsViewController: UIViewController{
         setupTableView()
         startListeningForConversations()
         
+        
         loginObserver = NotificationCenter.default.addObserver(forName: .didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
-                   guard let strongSelf = self else {
-                       return
-                   }
+            guard let strongSelf = self else {
+                return
+            }
 
-                   strongSelf.startListeningForConversations()
-               })
+            strongSelf.startListeningForConversations()
+        })
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
         startListeningForConversations()
+
     }
     
     private func setupUI() {
@@ -280,8 +283,10 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         }
 
         let model = conversations[indexPath.row]
+        DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) {
+            cell.configure(with: model)
+        }
         
-        cell.configure(with: model)
         return cell
     }
     
