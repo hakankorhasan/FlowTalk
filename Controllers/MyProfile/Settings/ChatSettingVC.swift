@@ -31,6 +31,7 @@ class ChatSettingVC: UIViewController {
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
         navigationItem.leftBarButtonItem = customButton
         
+        
         configureVisualUI()
         configureChatUI()
     }
@@ -40,6 +41,11 @@ class ChatSettingVC: UIViewController {
         self.navigationController?.popViewController(animated: true)
     }
     
+    @objc func handleWallpaper() {
+        let chatThemeVC = ChatThemeSetting()
+
+        self.navigationController?.pushViewController(chatThemeVC, animated: true)
+    }
     
 }
 
@@ -83,6 +89,9 @@ extension ChatSettingVC {
         
         view.addSubview(wallpaperStackView)
         wallpaperStackView.anchor(top: themeStackView.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 20, left: 20, bottom: 0, right: 20), size: .init(width: 0, height: 36))
+        wallpaperStackView.isUserInteractionEnabled = true
+        let wallpaperGesture = UITapGestureRecognizer(target: self, action: #selector(handleWallpaper))
+        wallpaperStackView.addGestureRecognizer(wallpaperGesture)
         
         let lineView = UIView()
         lineView.translatesAutoresizingMaskIntoConstraints = false
