@@ -122,33 +122,9 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-       // loadConversationsFromCache()
-       // tableView.isHidden = false
-        updateUserInterface()
 
         startListeningForConversations()
 
-    }
-    
-    private func saveConversationsToCache() {
-        do {
-            let encodedData = try JSONEncoder().encode(conversations)
-            UserDefaults.standard.set(encodedData, forKey: "conversationsCache")
-        } catch {
-            print("Error encoding conversations: \(error.localizedDescription)")
-        }
-    }
-    
-    private func loadConversationsFromCache() {
-        if let encodedData = UserDefaults.standard.data(forKey: "conversationsCache") {
-            do {
-                let decodedConversations = try JSONDecoder().decode([Conversation].self, from: encodedData)
-                conversations = decodedConversations
-                tableView.reloadData()
-            } catch {
-                print("Error decoding conversations: \(error.localizedDescription)")
-            }
-        }
     }
   
     private func setupUI() {
