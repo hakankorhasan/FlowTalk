@@ -19,3 +19,4 @@ var isOtherReadInfo: Bool = true
 var isOtherPF: Bool = true
 var isOtherLastSeenInfo: Bool = true
 
+var blackRatioConstants: CGFloat = 0.0

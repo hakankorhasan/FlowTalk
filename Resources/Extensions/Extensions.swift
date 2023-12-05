@@ -44,6 +44,7 @@ extension UILabel {
     }
 }
 
+
 extension UITextField {
     convenience public init(placeholder: String? = nil) {
         self.init()
@@ -85,4 +86,22 @@ extension UIImage {
         return newImage
     }
 
+}
+
+extension UIView {
+     func addGlobalUnsafeAreaView() {
+        let unsafeAreaView = UIView()
+                unsafeAreaView.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
+                self.addSubview(unsafeAreaView)
+
+                let statusBarHeight = UIApplication.shared.statusBarFrame.size.height - 0.5
+                unsafeAreaView.translatesAutoresizingMaskIntoConstraints = false
+
+                NSLayoutConstraint.activate([
+                    unsafeAreaView.heightAnchor.constraint(equalToConstant: statusBarHeight),
+                    unsafeAreaView.widthAnchor.constraint(equalTo: self.widthAnchor, multiplier: 1.0),
+                    unsafeAreaView.topAnchor.constraint(equalTo: self.topAnchor),
+                    unsafeAreaView.centerXAnchor.constraint(equalTo: self.centerXAnchor)
+                ])
+    }
 }

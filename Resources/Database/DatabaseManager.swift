@@ -20,6 +20,8 @@ class DatabaseManager {
     
     private let database = Database.database().reference()
     
+    let cache = NSCache<AnyObject, AnyObject>()
+    
     static func safeEmail(emaildAddress: String) -> String {
         var safeEmail = emaildAddress.replacingOccurrences(of: ".", with: "-")
         safeEmail = safeEmail.replacingOccurrences(of: "@", with: "-")
@@ -555,10 +557,38 @@ extension DatabaseManager {
     //Kullanıcının e-postayla iletilen tüm konuşmalarını getirir ve döndürür
     //Result türünde bir değer olarak iletmek için Result<String, Error> kullanır.
     //Başarılı bir sonuçta bir dize (String) veya bir hata (Error) döndürülür.
+    
+    public func getAllConversationsFromCache(for email: String) -> [Conversation]? {
+        let cacheKey = "\(email)/conversationsCache"
+        if let cachedData = UserDefaults.standard.data(forKey: cacheKey) {
+            do {
+                let conversations = try? JSONDecoder().decode([Conversation].self,
+                                                       from: cachedData)
+                return conversations
+            } catch {
+                print("Error decoding conversations from cache \(error)")
+                return nil
+            }
+        }
+        return nil
+    }
+    
+    public func saveConversationsToCache(_ conversations: [Conversation], for email: String) {
+        let cacheKey = "\(email)/conversationsCache"
+        do {
+            let encodedData = try? JSONEncoder().encode(conversations)
+            UserDefaults.standard.set(encodedData, forKey: cacheKey)
+        } catch {
+            print("Error encoding conversations data for cache \(error)")
+        }
+    }
+    
     public func getAllConversations(for email: String, completion: @escaping (Result<[Conversation], Error>) -> Void) {
-        database.child("\(email)/conversations").observe(.value) { snapshot in
+        let path = "\(email)/conversations"
+        database.child(path).observe(.value) { snapshot in
             guard let value = snapshot.value as? [[String: Any]] else {
                 print("error")
+                
                 completion(.failure(DatabaseError.failedToFetch))
                 return
             }
@@ -578,11 +608,18 @@ extension DatabaseManager {
                 
                 let latestMessageObject = LatestMessage(date: date, isRead: isRead, text: message)
                 
+                
+                
                 return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, isRoomBeginIn: isRoomBeginIn, latestMessage: latestMessageObject)
             }
             
+            self.saveConversationsToCache(conversations, for: email)
+            
             completion(.success(conversations))
+            
         }
+        
+        
     }
     
     

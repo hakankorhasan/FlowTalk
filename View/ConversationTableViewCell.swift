@@ -40,19 +40,29 @@ class ConversationTableViewCell: UITableViewCell {
         return label
     }()
     
+    private let cacheKeyPrefix = "conversation_"
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+    /*    userImageView.image = nil
+        usernameLabel.text = nil
+        dateLabel.text = nil
+        userMessageLabel.text = nil*/
+    }
+    
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         
         self.layer.cornerRadius = 44
         self.selectionStyle = .none
-        
-        // Gölge eklemek için özellikleri ayarlayın
-        self.layer.shadowColor = UIColor.gray.cgColor // Gölge rengi
-        self.layer.shadowOffset = CGSize(width: 0, height: 1) // Gölge boyutu ve yönü
-        self.layer.shadowOpacity = 0.3 // Gölge opaklığı
-        self.layer.shadowRadius = 1.0 // Gölge yarıçapı
-        
-        
+        backgroundColor = UIColor(red: 0.9590069652, green: 0.9689564109, blue: 1, alpha: 1)
+        contentView.backgroundColor = UIColor(red: 0.9590069652, green: 0.9689564109, blue: 1, alpha: 1)
+        // UITableViewCell içindeki shadow ayarları
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOffset = CGSize(width: 0, height: 1)
+        layer.shadowOpacity = 0.5
+        layer.shadowRadius = 2.0
+
         addSubview(userImageView)
         addSubview(usernameLabel)
         addSubview(dateLabel)
@@ -65,9 +75,11 @@ class ConversationTableViewCell: UITableViewCell {
                 return super.frame
             }
             set (newFrame) {
-                var frame = newFrame
-                frame.origin.x += 15
-                frame.size.width -= 2 * 15
+                var frame =  newFrame
+                        frame.origin.y += 10
+                        frame.origin.x += 10
+                        frame.size.height -= 15
+                        frame.size.width -= 2 * 10
                 super.frame = frame
             }
         }
@@ -101,11 +113,12 @@ class ConversationTableViewCell: UITableViewCell {
                                         height: (contentView.height-20)/2)
     }
 
-    func configure(with model: Conversation) {
+   /* func configure(with model: Conversation) {
+        
         userMessageLabel.text = model.latestMessage.text
         usernameLabel.text = model.name
         let date = model.latestMessage.date
-        
+        var formattedDates = ""
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMM dd, yyyy 'at' h:mm:ss a 'GMT'Z"
 
@@ -116,6 +129,7 @@ class ConversationTableViewCell: UITableViewCell {
             dateFormatter.pmSymbol = "pm"
             let formattedDate = dateFormatter.string(from: dateString)
             dateLabel.text = formattedDate
+            formattedDates = formattedDate
             print(formattedDate)
         } else {
             print("Date format is incompatible.")
@@ -123,22 +137,132 @@ class ConversationTableViewCell: UITableViewCell {
       
         let path = "images/\(model.otherUserEmail)_profile_picture.png"
         
-        
-        if isOtherPF {
-            StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                switch result {
-                case .success(let url):
-                    DispatchQueue.main.async {
-                        self?.userImageView.sd_setImage(with: url)
+        if let cachedImage = loadCacheImage(forkey: cacheKeyPrefix + model.otherUserEmail) {
+            let cachedName = UserDefaults.standard.string(forKey: cacheKeyPrefix + model.otherUserEmail + "_name")
+            let cachedDate = UserDefaults.standard.string(forKey: cacheKeyPrefix + model.otherUserEmail + "_date")
+            let cachedMessage = UserDefaults.standard.string(forKey: cacheKeyPrefix + model.otherUserEmail + "_latest_message")
+            
+            userImageView.image = cachedImage
+            usernameLabel.text = cachedName
+            userMessageLabel.text = cachedMessage
+            dateLabel.text = cachedDate
+        } else  {
+            if isOtherPF {
+                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                    switch result {
+                    case .success(let url):
+                        DispatchQueue.main.async {
+                            self?.userImageView.sd_setImage(with: url)
+                            
+                            self?.saveToCache(image: self?.userImageView.image, name: model.name, date: formattedDates, message: model.latestMessage.text, forkey: (self?.cacheKeyPrefix ?? "") + model.otherUserEmail)
+                        }
+                    case .failure(let error):
+                        print("failed to get image: ",error)
                     }
-                case .failure(let error):
-                    print("failed to get image: ",error)
                 }
+            } else {
+                self.userImageView.image = UIImage(systemName: "person.fill")
+                self.userImageView.tintColor = .darkGray
             }
-        } else {
-            self.userImageView.image = UIImage(systemName: "person.fill")
-            self.userImageView.tintColor = .darkGray
         }
         
     }
+    
+    func saveToCache(image: UIImage?, name: String, date: String, message: String, forkey key: String) {
+        UserDefaults.standard.set(name, forKey: key + "_name")
+        UserDefaults.standard.set(date, forKey: key + "_date")
+        UserDefaults.standard.set(message, forKey: key + "_latest_message")
+        
+        if let image = image,
+            let imageData = image.jpegData(compressionQuality: 1.0) {
+            UserDefaults.standard.setValue(imageData, forKey: key)
+        }
+    }
+    
+    func loadCacheImage(forkey key: String) -> UIImage? {
+        if let cachedImage = UserDefaults.standard.data(forKey: key),
+           let image = UIImage(data: cachedImage) {
+            return image
+        }
+        return nil
+    }*/
+    func configure(with model: Conversation) {
+        userMessageLabel.text = model.latestMessage.text
+        usernameLabel.text = model.name
+        let date = model.latestMessage.date
+        var formattedDates = ""
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM dd, yyyy 'at' h:mm:ss a 'GMT'Z"
+
+        if let dateString = dateFormatter.date(from: date) {
+            dateFormatter.dateFormat = "h:mm a"
+            // "AMSymbol" ve "PMSymbol" özelliklerini küçük harfle ayarlayın
+            dateFormatter.amSymbol = "am"
+            dateFormatter.pmSymbol = "pm"
+            let formattedDate = dateFormatter.string(from: dateString)
+            dateLabel.text = formattedDate
+            formattedDates = formattedDate
+            print(formattedDate)
+        } else {
+            print("Date format is incompatible.")
+        }
+
+        let path = "images/\(model.otherUserEmail)_profile_picture.png"
+        let cacheKey = cacheKeyPrefix + model.otherUserEmail
+
+        if let cachedImage = loadCacheImage(forkey: cacheKey) {
+            // Önbellekte veri var, cache'den kullan
+            let cachedName = UserDefaults.standard.string(forKey: cacheKey + "_name")
+            let cachedDate = UserDefaults.standard.string(forKey: cacheKey + "_date")
+            let cachedMessage = UserDefaults.standard.string(forKey: cacheKey + "_latest_message")
+            print("cacheden çekildi")
+            userImageView.image = cachedImage
+            usernameLabel.text = cachedName
+            userMessageLabel.text = cachedMessage
+            dateLabel.text = cachedDate
+        } else {
+            // Cache'de veri yok, internetten çek
+            print("Cache'de veri yok, internetten çek")
+            if isOtherPF {
+                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                    switch result {
+                    case .success(let url):
+                        DispatchQueue.main.async {
+                            self?.userImageView.sd_setImage(with: url)
+
+                            // Save data to cache
+                            self?.saveToCache(image: self?.userImageView.image, name: model.name, date: formattedDates, message: model.latestMessage.text, forkey: cacheKey)
+                        }
+                    case .failure(let error):
+                        print("failed to get image: ", error)
+                    }
+                }
+            } else {
+                self.userImageView.image = UIImage(systemName: "person.fill")
+                self.userImageView.tintColor = .darkGray
+            }
+        }
+    }
+
+    func saveToCache(image: UIImage?, name: String, date: String, message: String, forkey key: String) {
+        UserDefaults.standard.set(name, forKey: key + "_name")
+        UserDefaults.standard.set(date, forKey: key + "_date")
+        UserDefaults.standard.set(message, forKey: key + "_latest_message")
+
+        if let image = image,
+            let imageData = image.jpegData(compressionQuality: 1.0) {
+            UserDefaults.standard.setValue(imageData, forKey: key)
+        }
+    }
+
+    func loadCacheImage(forkey key: String) -> UIImage? {
+        if let cachedImage = UserDefaults.standard.data(forKey: key),
+           let image = UIImage(data: cachedImage) {
+            return image
+        } else {
+            print("No cached image or error while loading for key: \(key)")
+            return nil
+        }
+    }
+
 }

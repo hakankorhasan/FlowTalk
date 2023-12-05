@@ -22,10 +22,12 @@ class ChatSettingVC: UIViewController {
         title = "Chats"
         navigationItem.largeTitleDisplayMode = .never
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
+        
         let backButton = UIButton(type: .custom)
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         backButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 15, bottom: 0, right: 0)
-        
+        self.view.addGlobalUnsafeAreaView()
+
         let customButton = UIBarButtonItem(customView: backButton)
         backButton.tintColor = .black
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
@@ -43,7 +45,7 @@ class ChatSettingVC: UIViewController {
     
     @objc func handleWallpaper() {
         let chatThemeVC = ChatThemeSetting()
-
+        chatThemeVC.navigationItem.hidesBackButton = true
         self.navigationController?.pushViewController(chatThemeVC, animated: true)
     }
     

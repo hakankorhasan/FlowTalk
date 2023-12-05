@@ -23,7 +23,8 @@ class SettingsViewController: UIViewController {
         
         tableViewConfigure()
         cellsArrayAppend()
-        
+        self.view.addGlobalUnsafeAreaView()
+
         let backButton = UIButton(type: .custom)
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         backButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 15, bottom: 0, right: 0)

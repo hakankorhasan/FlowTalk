@@ -24,11 +24,10 @@ final class ProfileViewController: UIViewController {
         super.viewDidLoad()
         tableView.register(ProfileTableViewCell.self, forCellReuseIdentifier: ProfileTableViewCell.identifier)
         tableView.separatorStyle = .none
-        
         dataArrayUpdate()
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         tableView.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
-        
+        self.view.addGlobalUnsafeAreaView()
         tableView.delegate = self
         tableView.dataSource = self
         tableView.tableHeaderView = createTableHeader()
@@ -125,7 +124,6 @@ final class ProfileViewController: UIViewController {
                                               y: 0,
                                               width: self.view.width,
                                               height: 180))
-       
         
         let imageView = UIImageView(frame: CGRect(x: (headerView.width - 100) / 2,
                                                   y: 20,

@@ -80,7 +80,8 @@ class EditProfileViewController: UIViewController {
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
         
         spinner.textLabel.text = "Your information is being updated. Please wait!"
-        
+        self.view.addGlobalUnsafeAreaView()
+
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.leftBarButtonItem = customBackButton
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))

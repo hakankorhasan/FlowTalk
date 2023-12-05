@@ -10,7 +10,7 @@ import FirebaseAuth
 import JGProgressHUD
 
 /// Controller that show list of conversations
-final class ConversationsViewController: UIViewController{
+final class ConversationsViewController: UIViewController, UIScrollViewDelegate {
     
     private let spinner = JGProgressHUD(style: .light)
     
@@ -22,6 +22,7 @@ final class ConversationsViewController: UIViewController{
         tv.register(ConversationTableViewCell.self, forCellReuseIdentifier: ConversationTableViewCell.identifier)
         return tv
     }()
+
     
     private let noConversationsLabel: UILabel = {
        let label = UILabel()
@@ -39,18 +40,27 @@ final class ConversationsViewController: UIViewController{
     }()
     
     private var loginObserver: NSObjectProtocol?
+
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         plusButton.addTarget(self, action: #selector(didTapComposeButton), for: .touchUpInside)
+        
         view.addSubview(tableView)
+        tableView.backgroundColor = .clear
         view.addSubview(noConversationsLabel)
+        
         noConversationsLabel.isHidden = true
         setupUI()
         setupTableView()
         startListeningForConversations()
         
+        
+       
+       // tableView.backgroundColor = .clear
+        tableView.tableHeaderView = createTableHeader()
+        tableView.backgroundColor = .white
         
         loginObserver = NotificationCenter.default.addObserver(forName: .didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
             guard let strongSelf = self else {
@@ -59,17 +69,92 @@ final class ConversationsViewController: UIViewController{
 
             strongSelf.startListeningForConversations()
         })
+        
+        NotificationCenter.default
+                    .addObserver(self,
+                                 selector: #selector(statusManager),
+                                 name: .flagsChanged,
+                                 object: nil)
+        updateUserInterface()
     }
+    
+    func updateUserInterface() {
+       
+        print("Reachability Summary")
+        print("Status:", Network.reachability.status)
+        print("HostName:", Network.reachability.hostname ?? "nil")
+        print("Reachable:", Network.reachability.isReachable)
+        print("Wifi:", Network.reachability.isReachableViaWiFi)
+    }
+    
+    @objc func statusManager(_ notification: Notification) {
+        updateUserInterface()
+    }
+    
+    public func createTableHeader() -> UIView? {
+        let headerFrame = UIView(frame: CGRect(x: 0, y: 0, width: self.view.width, height: 40))
+        headerFrame.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
+        let header = UIView()
+        
+        headerFrame.addSubview(header)
+        header.anchor(top: headerFrame.topAnchor, leading: headerFrame.leadingAnchor, bottom: headerFrame.bottomAnchor, trailing: headerFrame.trailingAnchor)
+        header.backgroundColor = .white
+        header.layer.cornerRadius = 24
+        header.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        return headerFrame
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        tableView.anchor(
+            top: view.safeAreaLayoutGuide.topAnchor,
+            leading: view.leadingAnchor,
+            bottom: view.superview?.bottomAnchor,
+            trailing: view.trailingAnchor
+        )
+        
+        // Update the frame for noConversationsLabel
+        noConversationsLabel.frame = CGRect(x: 10, y: (view.height-20)/2, width: view
+            .width - 20, height: 100)
+    }
+    
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
+       // loadConversationsFromCache()
+       // tableView.isHidden = false
+        updateUserInterface()
+
         startListeningForConversations()
 
     }
     
+    private func saveConversationsToCache() {
+        do {
+            let encodedData = try JSONEncoder().encode(conversations)
+            UserDefaults.standard.set(encodedData, forKey: "conversationsCache")
+        } catch {
+            print("Error encoding conversations: \(error.localizedDescription)")
+        }
+    }
+    
+    private func loadConversationsFromCache() {
+        if let encodedData = UserDefaults.standard.data(forKey: "conversationsCache") {
+            do {
+                let decodedConversations = try JSONDecoder().decode([Conversation].self, from: encodedData)
+                conversations = decodedConversations
+                tableView.reloadData()
+            } catch {
+                print("Error decoding conversations: \(error.localizedDescription)")
+            }
+        }
+    }
+  
     private func setupUI() {
         // Initial setup for image for Large NavBar state since the the screen always has Large NavBar once it gets opened
+        self.view.addGlobalUnsafeAreaView()
+        
         guard let navigationBar = self.navigationController?.navigationBar else { return }
         navigationBar.addSubview(plusButton)
       //  plusButton.layer.cornerRadius = Const.ImageSizeForLargeState / 2
@@ -84,12 +169,15 @@ final class ConversationsViewController: UIViewController{
     }
     
     private func moveAndResizeImage(for height: CGFloat) {
+       
         let coeff: CGFloat = {
             let delta = height - Const.NavBarHeightSmallState
             let heightDifferenceBetweenStates = (Const.NavBarHeightLargeState - Const.NavBarHeightSmallState)
+           
             return delta / heightDifferenceBetweenStates
         }()
 
+        
         let factor = Const.ImageSizeForSmallState / Const.ImageSizeForLargeState
 
         let scale: CGFloat = {
@@ -110,6 +198,7 @@ final class ConversationsViewController: UIViewController{
         plusButton.transform = CGAffineTransform.identity
             .scaledBy(x: scale, y: scale)
             .translatedBy(x: xTranslation, y: yTranslation)
+       
     }
     
     private func startListeningForConversations() {
@@ -126,38 +215,54 @@ final class ConversationsViewController: UIViewController{
         
         spinner.show(in: view)
         
-        DatabaseManager.shared.getAllConversations(for: safeEmail) { [weak self] result in
-            print(result)
-            switch result {
-            case .success(let conversations):
-                print("successfully got conversation models")
-                guard !conversations.isEmpty else {
+        if let cachedConversations = DatabaseManager.shared.getAllConversationsFromCache(for: safeEmail) {
+            self.spinner.dismiss()
+            self.noConversationsLabel.isHidden = cachedConversations.isEmpty ? false : true
+            self.tableView.isHidden = cachedConversations.isEmpty ? true : false
+            self.conversations = cachedConversations
+            self.tableView.reloadData()
+        } else {
+            DatabaseManager.shared.getAllConversations(for: safeEmail) { [weak self] result in
+                print(result)
+                switch result {
+                case .success(let conversations):
+                    print("successfully got conversation models")
+                    guard !conversations.isEmpty else {
+                        self?.tableView.isHidden = true
+                        self?.noConversationsLabel.isHidden = false
+                        return
+                    }
+                    
+                    self?.spinner.dismiss()
+                    self?.noConversationsLabel.isHidden = true
+                    self?.tableView.isHidden = false
+                    self?.conversations = conversations
+                    
+                    DatabaseManager.shared.saveConversationsToCache(conversations, for: safeEmail)
+                    
+                    DispatchQueue.main.async {
+                        self?.tableView.reloadData()
+                    }
+                    
+                case .failure(let error):
+                    self?.spinner.dismiss()
                     self?.tableView.isHidden = true
                     self?.noConversationsLabel.isHidden = false
-                    return
+                    print("failed to get convos: \(error)")
                 }
-                
-                self?.spinner.dismiss()
-                self?.noConversationsLabel.isHidden = true
-                self?.tableView.isHidden = false
-                self?.conversations = conversations
-                
-                DispatchQueue.main.async {
-                    self?.tableView.reloadData()
-                }
-                
-            case .failure(let error):
-                self?.spinner.dismiss()
-                self?.tableView.isHidden = true
-                self?.noConversationsLabel.isHidden = false
-                print("failed to get convos: \(error)")
             }
         }
+        
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard let height = navigationController?.navigationBar.frame.height else { return }
+        let minHeight: CGFloat = 96.3
+        let heightDifference = max(height - minHeight, 0)
+        print("heigh", height)
+        
         moveAndResizeImage(for: height)
+
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -172,13 +277,6 @@ final class ConversationsViewController: UIViewController{
         UIView.animate(withDuration: 0.2) {
             self.plusButton.alpha = show ? 1.0 : 0.0
         }
-    }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        tableView.frame = view.bounds
-        noConversationsLabel.frame = CGRect(x: 10, y: (view.height-20)/2, width: view
-            .width - 20, height: 100)
     }
     
     @objc private func didTapComposeButton() {
@@ -241,12 +339,13 @@ final class ConversationsViewController: UIViewController{
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         showImage(true)
+       
         validateAuth()
     }
     
     private func setupTableView() {
         if traitCollection.userInterfaceStyle == .light {
-            tableView.backgroundColor = UIColor(red: 0.9590069652, green: 0.9689564109, blue: 1, alpha: 1)
+           // tableView.backgroundColor = UIColor(red: 0.9590069652, green: 0.9689564109, blue: 1, alpha: 1)
         }
         
         tableView.separatorStyle = .none
@@ -281,11 +380,20 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
             // Parlak modda background rengini belirlediğiniz renk olarak ayarla
             cell.backgroundColor = .white
         }
-
+        cell.clipsToBounds = true
         let model = conversations[indexPath.row]
-        DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) {
+        
+        if Network.reachability.isReachable {
+            // İnternet bağlantısı var, fetch işlemini gerçekleştir
+            DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) { [weak self] in
+                // closure içinde self'i weak olarak tanımlamak önemlidir, bu şekilde retain cycle'ı önlemiş olursunuz
+                cell.configure(with: model)
+            }
+        } else {
+            // İnternet bağlantısı yok, sadece cell'i yapılandır
             cell.configure(with: model)
         }
+
         
         return cell
     }
@@ -303,7 +411,7 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 100
+        return 115
     }
     
     func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
@@ -342,5 +450,15 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         }
         
         
+    }
+    
+}
+
+extension UIView {
+   func roundCorners(corners: UIRectCorner, radius: CGFloat) {
+        let path = UIBezierPath(roundedRect: bounds, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        let mask = CAShapeLayer()
+        mask.path = path.cgPath
+        layer.mask = mask
     }
 }

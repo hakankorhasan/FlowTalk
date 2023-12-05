@@ -21,12 +21,13 @@ class PrivacySettingVC: UIViewController {
         super.viewDidLoad()
         
         title = "Privacy"
+        
         navigationItem.largeTitleDisplayMode = .never
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         let backButton = UIButton(type: .custom)
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         backButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 15, bottom: 0, right: 0)
-        
+
         let customButton = UIBarButtonItem(customView: backButton)
         backButton.tintColor = .black
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
@@ -36,6 +37,7 @@ class PrivacySettingVC: UIViewController {
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        
         tableView.frame = view.bounds
     }
     
@@ -62,6 +64,8 @@ class PrivacySettingVC: UIViewController {
         tableView.rowHeight = 64
         tableView.delegate = self
         tableView.dataSource = self
+        tableView.isScrollEnabled = false
+        self.view.addGlobalUnsafeAreaView()
     }
     
     private func cellsArrayAppend() {

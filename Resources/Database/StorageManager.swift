@@ -155,16 +155,26 @@ class StorageManager {
         case FailedToDeletePicture
     }
     
+    let cache = NSCache<AnyObject, AnyObject>()
+    
     public func downloadUrl(for path: String, completion: @escaping (Result<URL, Error>) -> Void) {
         
-        let reference = storage.child(path)
+        if let cachedUrl = cache.object(forKey: path as AnyObject) as? URL {
+            // Eğer önbellekte varsa, direkt olarak önbellekten döndür
+            completion(.success(cachedUrl))
+            return
+        }
         
+        let reference = storage.child(path)
+    
         reference.downloadURL { url, error in
             guard let url = url, error == nil else {
                 completion(.failure(StorageErrors.FailedToGetDownloadUrl))
                 return
             }
             
+            self.cache.setObject(url as AnyObject, forKey: path as AnyObject)
+
             completion(.success(url))
         }
         

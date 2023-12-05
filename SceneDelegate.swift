@@ -37,7 +37,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         
         DatabaseManager.shared.fetchUserSettings(safeEmail: currentUser, isCurrentUser: true) { }
         //DatabaseManager.shared.fetchUserSettings(safeEmail: currentUser, isCurrentUser: false) { }
-        
         DatabaseReference.setUserOnlineStatus(isOnline: true, lastOnline: "")
     }
 

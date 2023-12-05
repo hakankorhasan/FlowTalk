@@ -24,9 +24,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
           didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-    
+
+        do {
+            try Network.reachability = Reachability(hostname: "www.google.com")
+        }
+        catch {
+            switch error as? Network.Error {
+            case let .failedToCreateWith(hostname)?:
+                print("Network error:\nFailed to create reachability object With host named:", hostname)
+            case let .failedToInitializeWith(address)?:
+                print("Network error:\nFailed to initialize reachability object With address:", address)
+            case .failedToSetCallout?:
+                print("Network error:\nFailed to set callout")
+            case .failedToSetDispatchQueue?:
+                print("Network error:\nFailed to set DispatchQueue")
+            case .none:
+                print(error)
+            }
+        }
+        
         FirebaseApp.configure()
-              
+        // Bu kod, her push işlemi sonrasında navigation bar title rengini beyaz yapar
+        UINavigationBar.appearance().tintColor = .white
+        UINavigationBar.appearance().titleTextAttributes = [
+            .foregroundColor: UIColor.white
+        ]
         GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
             if error != nil || user == nil {
               // Show the app's signed-out state.
@@ -36,7 +58,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
           }
         
         ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
-    
         return true
      }
     

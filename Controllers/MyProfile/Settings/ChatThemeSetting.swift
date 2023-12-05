@@ -6,35 +6,108 @@
 //
 
 import UIKit
+import FirebaseStorage
+import JGProgressHUD
 
 class ChatThemeSetting: UIViewController {
     
     var phoneDesign = PhoneDesign()
     var brightnessSlider = UISlider()
-    
+    var blackRatio = CGFloat()
     var changeButton = UIButton()
     let darkLabel = UILabel()
     let lightLabel = UILabel()
     
+    let progress = JGProgressHUD(style: .light)
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        self.view.addGlobalUnsafeAreaView()
+
+        progress.textLabel.text = "Background Image"
+        progress.detailTextLabel.text = "Background image is loading.\n Please wait!"
+        progress.detailTextLabel.numberOfLines = 2
         view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         changeButton.addTarget(self, action: #selector(handleChange), for: .touchUpInside)
         phoneDesign.isUserInteractionEnabled = true
         let gesture = UITapGestureRecognizer(target: self, action: #selector(handleChange))
         phoneDesign.addGestureRecognizer(gesture)
         configurePhoneView()
+        navItemSetup()
         darkOrLightLabel()
         brightnessSlider.addTarget(self, action: #selector(sliderValueChanged(_:)), for: .valueChanged)
-      
+       
+    }
+    
+    private func navItemSetup() {
+        
+        let backButton = UIButton(type: .custom)
+        backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
+        backButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 15, bottom: 0, right: 0)
+        let customButton = UIBarButtonItem(customView: backButton)
+        backButton.tintColor = .black
+        backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
+        navigationItem.leftBarButtonItem = customButton
+        
+        guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+        StorageManager.shared.downloadUrl(for: "images/\(safeEmail)_chatBack.jpg") { result in
+            switch result {
+            case .success(let downloadUrl):
+                DispatchQueue.main.async {
+                    self.phoneDesign.imageViewArea.sd_setImage(with: downloadUrl)
+                }
+            case .failure(let error):
+                print("error", error)
+            }
+        }
+    }
+    
+    @objc fileprivate func endedEdit() {
+        progress.show(in: view)
+        blackRatioConstants = blackRatio
+        guard let imageData = phoneDesign.imageViewArea.image?.pngData() else {
+               // Handle error if unable to convert image to data
+            self.progress.textLabel.text = "Error"
+            self.progress.detailTextLabel.text = "Please make sure you choose a picture."
+            self.progress.dismiss(afterDelay: 1)
+               return
+           }
+
+        guard let currEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currEmail)
+           // Use Firebase Storage reference
+           let storageRef = Storage.storage().reference().child("images").child("\(safeEmail)_chatBack.jpg")
+
+           // Upload image data to Firebase Storage
+           storageRef.putData(imageData, metadata: nil) { (metadata, error) in
+               if let error = error {
+                   // Handle error
+                   print("Error uploading image: \(error.localizedDescription)")
+                  
+               } else {
+                   // Image uploaded successfully
+                   self.progress.dismiss()
+                 
+               }
+           }        //resizeAndUploadImage(image: phoneDesign.imageViewArea.image!, darknessLevel: blackRatio)
+    }
+    
+    @objc fileprivate func handleBack() {
+        self.navigationController?.popViewController(animated: true)
     }
     
     @objc func sliderValueChanged(_ sender: UISlider) {
         // Aydınlatma/Karartma miktarını belirle (0: tam aydınlatma, 1: tam karartma)
         // Gölge miktarını belirle
-        let blackRatio = CGFloat(sender.value)
-       
+        blackRatio = CGFloat(sender.value)
+        
         phoneDesign.tintView.backgroundColor = UIColor(white: 0, alpha: blackRatio)
     }
     
@@ -49,6 +122,53 @@ class ChatThemeSetting: UIViewController {
 
        return newImage
    }
+    
+    func resizeAndUploadImage(image: UIImage, darknessLevel: CGFloat) {
+       
+        let darkenedImage = applyDarkness(image: image, darknessLevel: darknessLevel)
+
+        guard let imageData = darkenedImage.jpegData(compressionQuality: 0.8) else {
+            // Handle error if unable to convert image to data
+            return
+        }
+
+        // Use Firebase Storage reference
+        let storageRef = Storage.storage().reference().child("images").child("darkenedImage.jpg")
+
+        // Upload image data to Firebase Storage
+        storageRef.putData(imageData, metadata: nil) { (metadata, error) in
+            if let error = error {
+                // Handle error
+                print("Error uploading image: \(error.localizedDescription)")
+            } else {
+                // Image uploaded successfully
+               // print("Image uploaded successfully. URL: \(String(describing: metadata?.downloadURL()))")
+            }
+        }
+    }
+    
+    func applyDarkness(image: UIImage, darknessLevel: CGFloat) -> UIImage {
+        guard let cgImage = image.cgImage else {
+               return image
+           }
+
+           let context = CIContext(options: nil)
+           let ciImage = CIImage(cgImage: cgImage)
+
+           // Apply darkness using CIFilter
+           if let filter = CIFilter(name: "CIColorControls") {
+               filter.setValue(ciImage, forKey: kCIInputImageKey)
+               filter.setValue(NSNumber(value: Float(-darknessLevel)), forKey: kCIInputContrastKey)
+
+               if let outputCIImage = filter.outputImage,
+                  let outputCGImage = context.createCGImage(outputCIImage, from: outputCIImage.extent) {
+                   return UIImage(cgImage: outputCGImage)
+               }
+           }
+
+           // Return original image if something goes wrong
+           return image
+    }
 }
 
 
@@ -56,15 +176,40 @@ extension ChatThemeSetting: UIImagePickerControllerDelegate, UINavigationControl
     
     @objc fileprivate func handleChange() {
         
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUser)
+        
         let alert = UIAlertController(title: "Chat Background Picture", message: "How would you like to select a picture?", preferredStyle: .actionSheet)
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
         cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
         alert.addAction(cancelAction)
         
-        let takeAction = UIAlertAction(title: "Take Photo", style: .default) { _ in
+        let choseAction = UIAlertAction(title: "Chose Photo", style: .default) { _ in
             self.presentGallery()
         }
-        alert.addAction(takeAction)
+        choseAction.setValue(UIColor.black, forKey: "titleTextColor")
+        
+        let deletePhoto = UIAlertAction(title: "Delete", style: .default) { _ in
+            
+            let fileName = "\(safeEmail)_chatBack.jpg"
+            StorageManager.shared.deleteProfilePicture(fileName: fileName) { success in
+                if success {
+                    self.phoneDesign.imageViewArea.image = nil
+                } else {
+                    let alertDeleted = UIAlertController(title: "Photo could not be deleted", message: "", preferredStyle: .alert)
+                    let alert2 = UIAlertAction(title: "Close", style: .cancel)
+                    alertDeleted.addAction(alert2)
+                    self.present(alert, animated: true)
+                }
+            }
+        }
+        deletePhoto.setValue(UIColor.black, forKey: "titleTextColor")
+        
+        alert.addAction(choseAction)
+        alert.addAction(deletePhoto)
         
         UIView.animate(withDuration: 0.3, animations: {
                // Scale up the button by increasing its size
@@ -83,18 +228,18 @@ extension ChatThemeSetting: UIImagePickerControllerDelegate, UINavigationControl
         let vc = UIImagePickerController()
         vc.sourceType = .photoLibrary
         vc.delegate = self
-        vc.allowsEditing = true
+        //vc.allowsEditing = true
         present(vc, animated: true)
     }
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         
-        guard let selectedImage = info[UIImagePickerController.InfoKey.editedImage] as? UIImage else {
+        guard let selectedImage = info[UIImagePickerController.InfoKey.originalImage] as? UIImage else {
             return
         }
         
         self.phoneDesign.imageViewArea.image = selectedImage
-       
+        
         picker.dismiss(animated: true)
     }
 }
@@ -137,7 +282,9 @@ extension ChatThemeSetting {
         
         view.addSubview(lineView)
         lineView.anchor(top: changeButton.bottomAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 20, left: 0, bottom: 0, right: 0), size: .init(width: 0, height: 0.33))
+        
     }
+    
     
     private func darkOrLightLabel() {
         
@@ -148,7 +295,8 @@ extension ChatThemeSetting {
         brightnessSlider.layer.shadowOpacity = Float(0.8)
         brightnessSlider.minimumValue = 0.0
         brightnessSlider.maximumValue = 1.0
-        brightnessSlider.value = 0.0
+        brightnessSlider.value = Float(blackRatioConstants)
+        phoneDesign.tintView.backgroundColor = UIColor(white: 0, alpha: blackRatioConstants)
         brightnessSlider.minimumTrackTintColor = #colorLiteral(red: 0, green: 0.1996820271, blue: 0.4762874842, alpha: 1)
         brightnessSlider.minimumTrackTintColor = #colorLiteral(red: 0, green: 0.1996820271, blue: 0.4762874842, alpha: 1)
         let image = resizeImage(image: UIImage(named: "night-mode")!, newWidth: 24)
@@ -166,11 +314,28 @@ extension ChatThemeSetting {
         lightLabel.font = .systemFont(ofSize: 14, weight: .regular)
         
         view.addSubview(lightLabel)
-        lightLabel.anchor(top: nil, leading: view.leadingAnchor, bottom: view.safeAreaLayoutGuide.bottomAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 40, bottom: 60, right: 40))
+        lightLabel.anchor(top: nil, leading: view.leadingAnchor, bottom: view.safeAreaLayoutGuide.bottomAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 40, bottom: 140, right: 40))
         
         
         view.addSubview(brightnessSlider)
         brightnessSlider.anchor(top: nil, leading: view.leadingAnchor, bottom: lightLabel.topAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 40, bottom: 30, right: 40))
+        
+        let rightButton = UIButton()
+        rightButton.setImage(UIImage(systemName: "checkmark"), for: .normal)
+        rightButton.setTitleColor(.white, for: .normal)
+        rightButton.backgroundColor = #colorLiteral(red: 0, green: 0.1996820271, blue: 0.4762874842, alpha: 1)
+        rightButton.layer.cornerRadius = 25
+        rightButton.layer.shadowColor = UIColor.gray.cgColor
+        rightButton.layer.shadowOffset = CGSize(width: 0, height: 2)
+        rightButton.layer.shadowRadius = 4
+        rightButton.layer.shadowOpacity = 0.8
+        rightButton.widthAnchor.constraint(equalToConstant: 50).isActive = true
+        rightButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        rightButton.tintColor = .white
+        rightButton.addTarget(self, action: #selector(endedEdit), for: .touchUpInside)
+        view.addSubview(rightButton)
+        rightButton.anchor(top: lightLabel.bottomAnchor, leading: nil, bottom: nil, trailing: nil, padding: .init(top: 50, left: 0, bottom: 0, right: 0))
+        rightButton.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
     }
     
 }

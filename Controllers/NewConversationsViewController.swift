@@ -48,7 +48,8 @@ final class NewConversationsViewController: UIViewController {
         
         tableView.delegate = self
         tableView.dataSource = self
-        
+        self.view.addGlobalUnsafeAreaView()
+
         searchBar.delegate = self
         view.backgroundColor = .systemBackground
         navigationController?.navigationBar.topItem?.titleView = searchBar

@@ -59,11 +59,13 @@ class PrivacyTableViewCell: UITableViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         
+        
         title.anchor(top: topAnchor, leading: leadingAnchor, bottom: nil, trailing: nil, padding: .init(top: 8, left: 15, bottom: 0, right: 0))
         
         titleContent.anchor(top: title.bottomAnchor, leading: title.leadingAnchor, bottom: nil, trailing: nil, padding: .init(top: 4, left: 0, bottom: 0, right: 0))
         
         switchButton.translatesAutoresizingMaskIntoConstraints = false
+        
         switchButton.anchor(top: nil, leading: nil, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 0, bottom: 0, right: 10), size: .init(width: 41, height: 25))
         switchButton.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true
         contentView.layer.cornerRadius = 12

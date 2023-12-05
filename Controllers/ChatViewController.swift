@@ -35,6 +35,7 @@ final class ChatViewController: MessagesViewController {
                senderId: safeEmail)
     }
     
+    
     private let userImageView: UIImageView = {
        let iv = UIImageView()
         return iv
@@ -108,7 +109,8 @@ final class ChatViewController: MessagesViewController {
 
         navigationItem.hidesBackButton = true
         setupMessageCollectionViewDelegate()
-        
+      //  phoneDesign.tintView.backgroundColor = UIColor(white: 0, alpha: blackRatio)
+        view.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
         setupOnlineState()
         setupReadState()
         print("conversationPath: ", conversationPath)
@@ -116,10 +118,29 @@ final class ChatViewController: MessagesViewController {
         configureGestureRecognizer()
         setupInputButton()
         setupTrashAnimation()
-       
     }
     
     private func setupMessageCollectionViewDelegate() {
+        let viewBack = UIImageView()
+        guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+        StorageManager.shared.downloadUrl(for: "images/\(safeEmail)_chatBack.jpg") { result in
+            switch result {
+            case .success(let downloadUrl):
+                DispatchQueue.main.async {
+                    viewBack.sd_setImage(with: downloadUrl)
+                }
+            case .failure(let error):
+                print("error", error)
+            }
+        }
+       // view.image = UIImage(named: "69 charger")
+        viewBack.contentMode = .scaleAspectFit
+        messagesCollectionView.backgroundView = viewBack
+     //   messagesCollectionView.backgroundColor = UIColor(white: 0, alpha: blackRatioConstants)
         messagesCollectionView.messagesDataSource = self
         messagesCollectionView.messagesLayoutDelegate = self
         messagesCollectionView.messagesDisplayDelegate = self
@@ -197,6 +218,7 @@ final class ChatViewController: MessagesViewController {
     }
     
     var conversationPath = ""
+    
     override func viewWillAppear(_ animated: Bool) {
         
         DatabaseManager.shared.fetchUserSettings(safeEmail: otherUserEmail, isCurrentUser: false) {
@@ -277,6 +299,7 @@ final class ChatViewController: MessagesViewController {
     }
     
     @objc private func handleBack() {
+    //    self.navigationController?.navigationBar.backgroundColor = .clear
         self.navigationController?.popViewController(animated: true)
     }
     
@@ -365,7 +388,8 @@ final class ChatViewController: MessagesViewController {
         navigationItem.leftBarButtonItem = backButtonItem
         
         guard let navigationBar = self.navigationController?.navigationBar else { return }
-        
+        self.view.addGlobalUnsafeAreaView()
+
         navigationBar.addSubview(videoCallButton)
         videoCallButton.addTarget(self, action: #selector(handleVideoCall), for: .touchUpInside)
         videoCallButton.clipsToBounds = true
@@ -1155,9 +1179,6 @@ extension ChatViewController: MessageCellDelegate {
         let corner: MessageStyle.TailCorner = isFromCurrentSender(message: message) ? .bottomRight : .bottomLeft
         //    let borderColor:UIColor = isFromCurrentSender(message: message) ? .black: .purple
         return .bubbleTail(corner, .curved)
-            
-            
-        return .bubble
     }
   
     func didTapImage(in cell: MessageCollectionViewCell) {

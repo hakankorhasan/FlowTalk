@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Conversation {
+struct Conversation: Codable {
     let id: String
     let name: String
     let otherUserEmail: String
@@ -15,7 +15,7 @@ struct Conversation {
     let latestMessage: LatestMessage
 }
 
-struct LatestMessage {
+struct LatestMessage: Codable {
     let date: String
     let isRead: Bool
     let text: String
