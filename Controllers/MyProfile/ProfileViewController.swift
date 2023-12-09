@@ -50,8 +50,18 @@ final class ProfileViewController: UIViewController {
             
             DatabaseReference.setUserOnlineStatus(isOnline: false, lastOnline: lastOnlineConstant)
             
+            guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
+                return
+            }
+            print("email", email)
+            let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+            
+            let cacheKey = "\(safeEmail)/conversationsCache"
+            
             UserDefaults.standard.setValue(nil, forKey: "email")
             UserDefaults.standard.setValue(nil, forKey: "name")
+            UserDefaults.standard.removeObject(forKey: cacheKey)
+            self?.clearCache(for: safeEmail)
             //logout facebook
            
             FBSDKLoginKit.LoginManager().logOut()
@@ -85,7 +95,8 @@ final class ProfileViewController: UIViewController {
     private func dataArrayUpdate() {
         
         data.append(ProfileViewModel(viewModelType: .info, title: "Invite a friend", titleResult: "add-user-2", handler: {
-            let inviteVC = InviteFriendViewController()
+            let inviteVC = SearchController()
+            inviteVC.navigationItem.hidesBackButton = true
             self.navigationController?.pushViewController(inviteVC, animated: true)
         }, padding: 20))
         
@@ -102,12 +113,32 @@ final class ProfileViewController: UIViewController {
         }, padding: 20))
         
         data.append(ProfileViewModel(viewModelType: .info, title: "About us", titleResult: "about-2", handler: {
-            let aboutVC = InviteFriendViewController()
+            let aboutVC = AboutUsViewController()
             self.navigationController?.pushViewController(aboutVC, animated: true)
         }, padding: 20))
         
         
         
+    }
+    
+    public func clearCache(for email: String) {
+        let cacheKeyConversations = "\(email)/conversationsCache"
+        let cacheKeyProfile = "conversation_" + email
+
+        // Clear conversations cache
+        UserDefaults.standard.removeObject(forKey: cacheKeyConversations)
+
+        // Clear profile picture cache
+        UserDefaults.standard.removeObject(forKey: cacheKeyProfile + "_name")
+        UserDefaults.standard.removeObject(forKey: cacheKeyProfile + "_date")
+        UserDefaults.standard.removeObject(forKey: cacheKeyProfile + "_latest_message")
+        UserDefaults.standard.removeObject(forKey: cacheKeyProfile)
+
+        // Clear conversations cache from NSCache if needed
+        // cache.removeObject(forKey: cacheKeyConversations as AnyObject)
+
+        // Synchronize UserDefaults to ensure changes take effect
+        UserDefaults.standard.synchronize()
     }
 
     public func createTableHeader() -> UIView? {

@@ -251,16 +251,22 @@ extension ChatThemeSetting {
         phoneDesign.setupImageView()
         phoneDesign.setupTabBarArea()
         
+        let screenHeight = UIScreen.main.bounds.height
+
+        // Ekran yüksekliğinin yüzde 30'u kadar bir değeri `phoneDesign`'ın yüksekliği olarak belirle
+        let phoneDesignHeightPercentage: CGFloat = 0.4
+        let phoneDesignHeight = screenHeight * phoneDesignHeightPercentage
+        
         let views = UIView()
         views.layer.cornerRadius = 14
         views.layer.borderWidth = 1.0
         views.layer.borderColor = UIColor.darkGray.cgColor
         view.addSubview(views)
-        views.anchor(top: view.safeAreaLayoutGuide.topAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 50, left: 100, bottom: 0, right: 100), size: .init(width: 0, height: 340))
+        views.anchor(top: view.safeAreaLayoutGuide.topAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, padding: .init(top: 30, left: self.view.width/4, bottom: 0, right: self.view.width/4), size: .init(width: 0, height: phoneDesignHeight))
         
         views.clipsToBounds = true
         views.addSubview(phoneDesign)
-        phoneDesign.anchor(top: views.topAnchor, leading: views.leadingAnchor, bottom: nil, trailing: views.trailingAnchor, size: .init(width: 0, height: 340))
+        phoneDesign.anchor(top: views.topAnchor, leading: views.leadingAnchor, bottom: nil, trailing: views.trailingAnchor, size: .init(width: 0, height: phoneDesignHeight))
         
         changeButton.setTitle("Change", for: .normal)
         changeButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular)
@@ -313,14 +319,14 @@ extension ChatThemeSetting {
         lightLabel.textAlignment = .center
         lightLabel.font = .systemFont(ofSize: 14, weight: .regular)
         
-        view.addSubview(lightLabel)
-        lightLabel.anchor(top: nil, leading: view.leadingAnchor, bottom: view.safeAreaLayoutGuide.bottomAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 40, bottom: 140, right: 40))
-        
-        
         view.addSubview(brightnessSlider)
-        brightnessSlider.anchor(top: nil, leading: view.leadingAnchor, bottom: lightLabel.topAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 40, bottom: 30, right: 40))
+        view.addSubview(lightLabel)
+        brightnessSlider.anchor(top: changeButton.bottomAnchor, leading: view.leadingAnchor, bottom: lightLabel.topAnchor, trailing: view.trailingAnchor, padding: .init(top: 40, left: 40, bottom: 30, right: 40))
         
         let rightButton = UIButton()
+        view.addSubview(rightButton)
+        lightLabel.anchor(top: brightnessSlider.bottomAnchor, leading: view.leadingAnchor, bottom: rightButton.topAnchor, trailing: view.trailingAnchor, padding: .init(top: 0, left: 40, bottom: 30, right: 40))
+    
         rightButton.setImage(UIImage(systemName: "checkmark"), for: .normal)
         rightButton.setTitleColor(.white, for: .normal)
         rightButton.backgroundColor = #colorLiteral(red: 0, green: 0.1996820271, blue: 0.4762874842, alpha: 1)
@@ -333,8 +339,8 @@ extension ChatThemeSetting {
         rightButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
         rightButton.tintColor = .white
         rightButton.addTarget(self, action: #selector(endedEdit), for: .touchUpInside)
-        view.addSubview(rightButton)
-        rightButton.anchor(top: lightLabel.bottomAnchor, leading: nil, bottom: nil, trailing: nil, padding: .init(top: 50, left: 0, bottom: 0, right: 0))
+        
+        rightButton.anchor(top: lightLabel.bottomAnchor, leading: nil, bottom: nil, trailing: nil, padding: .init(top: 30, left: 0, bottom: 0, right: 0))
         rightButton.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
     }
     

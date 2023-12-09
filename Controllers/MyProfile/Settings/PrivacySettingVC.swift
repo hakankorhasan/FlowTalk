@@ -70,25 +70,19 @@ class PrivacySettingVC: UIViewController {
     
     private func cellsArrayAppend() {
         
-        cells.append(PrivacyViewModel(title: "Last seen", isSwitchOn: isCurrentLastSeenInfo, handler: {
-            isCurrentLastSeenInfo = self.cells[0].isSwitchOn
-            self.changeValue(variableToChange: "isOpenLastseenInfo", value: isCurrentLastSeenInfo)
-        }))
+        let settings: [UserSetting] = [.lastSeenInfo, .onlineInfo, .profilePhoto, .readReceipt]
         
-        cells.append(PrivacyViewModel(title: "Online", isSwitchOn: isCurrentOnlineInfo, handler: {
-            isCurrentOnlineInfo = self.cells[1].isSwitchOn
-            self.changeValue(variableToChange: "isOpenOnlineInfo", value: isCurrentOnlineInfo)
-        }))
-        
-        cells.append(PrivacyViewModel(title: "Profile photo", isSwitchOn: isCurrentPF, handler: {
-            isCurrentPF = self.cells[2].isSwitchOn
-            self.changeValue(variableToChange: "isHiddenPF", value: isCurrentPF)
-        }))
-        
-        cells.append(PrivacyViewModel(title: "Read receipt", isSwitchOn: isCurrentReadInfo, handler: {
-            isCurrentReadInfo = self.cells[3].isSwitchOn
-            self.changeValue(variableToChange: "isOpenReadInfo", value: isCurrentReadInfo)
-        }))
+        for (index, setting) in settings.enumerated() {
+            let switchOnValue = getUserSetting(status: .current, setting: setting)
+
+            cells.append(PrivacyViewModel(title: setting.title, isSwitchOn: switchOnValue, handler: { [weak self] in
+                    // Handler içinde self kullanımı için weak self kullanılmalı
+                guard let self = self else { return }
+                print(setting.rawValue)
+                print(self.cells.last?.isSwitchOn ?? false)
+                self.changeValue(variableToChange: setting.rawValue, value: self.cells[index].isSwitchOn)
+            }))
+        }
 
     }
     
@@ -105,7 +99,8 @@ class PrivacySettingVC: UIViewController {
                let email = userData["email"] as? String,
                email == safeEmail {
                
-                let lastOnlineRef = usersRef .child(snapshot.key).child("user_settings").child(variableToChange)
+                let lastOnlineRef = usersRef.child(snapshot.key).child("user_settings").child(variableToChange)
+                print(lastOnlineRef)
                 
                 lastOnlineRef.setValue(value) { (error, reference) in
                     if let error = error {
@@ -116,6 +111,7 @@ class PrivacySettingVC: UIViewController {
                 }
             }
         }
+        
     }
     
     private func createTableHeader() -> UIView? {

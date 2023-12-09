@@ -268,7 +268,7 @@ class EditProfileViewController: UIViewController {
             
             alert.addAction(UIAlertAction(title: "Yes", style: .default, handler: { _ in
                 self.spinner.show(in: self.view, animated: true)
-                let userInfo = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: countryCode ?? 0, phoneNumber: phone ?? 0, password: password, emailAddress: safeEmail, isOnline: true, lastOnline: "")
+                let userInfo = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: countryCode ?? 0, phoneNumber: phone ?? 0, password: password, emailAddress: safeEmail, isOnline: true, lastOnline: "", friends: [], requests: [])
                 
                 let user = Auth.auth().currentUser
                 let credential = EmailAuthProvider.credential(withEmail: currentUser, password: password)

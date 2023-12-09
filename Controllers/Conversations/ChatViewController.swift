@@ -109,8 +109,6 @@ final class ChatViewController: MessagesViewController {
 
         navigationItem.hidesBackButton = true
         setupMessageCollectionViewDelegate()
-      //  phoneDesign.tintView.backgroundColor = UIColor(white: 0, alpha: blackRatio)
-        view.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
         setupOnlineState()
         setupReadState()
         print("conversationPath: ", conversationPath)
@@ -222,7 +220,7 @@ final class ChatViewController: MessagesViewController {
     override func viewWillAppear(_ animated: Bool) {
         
         DatabaseManager.shared.fetchUserSettings(safeEmail: otherUserEmail, isCurrentUser: false) {
-            if isOtherOnlineInfo {
+            if getUserSetting(status: .other, setting: .onlineInfo) {
                 self.onlineDotView.isHidden = false
                 //self.onlineTextLabel.isHidden = false
             } else {
@@ -230,7 +228,7 @@ final class ChatViewController: MessagesViewController {
                // self.onlineTextLabel.isHidden = true
             }
             
-            if isOtherPF {
+            if getUserSetting(status: .other, setting: .profilePhoto) {
                 self.userImageView.isHidden = false
             } else {
                 self.userImageView.image = UIImage(systemName: "person.fill")
@@ -354,7 +352,7 @@ final class ChatViewController: MessagesViewController {
          if isOnline {
              UIView.animate(withDuration: 0.2) {
                  self.onlineDotView.backgroundColor = .green
-                 if isOtherOnlineInfo {
+                 if getUserSetting(status: .other, setting: .onlineInfo) {
                      self.onlineTextLabel.text = "Online"
                  } else {
                      self.onlineTextLabel.text = ""
@@ -409,7 +407,9 @@ final class ChatViewController: MessagesViewController {
         
         onlineTextLabel.font = .systemFont(ofSize: 12, weight: .regular)
         
-        if let otherUserPhotoURL = self.otherUserPhotoURL, isOtherPF {
+        let otherPf = getUserSetting(status: .other, setting: .profilePhoto)
+        
+        if let otherUserPhotoURL = self.otherUserPhotoURL, otherPf {
               userImageView.sd_setImage(with: otherUserPhotoURL)
         } else {
             let email = self.otherUserEmail
@@ -420,7 +420,7 @@ final class ChatViewController: MessagesViewController {
                 case .success(let url):
                     DispatchQueue.main.async {
                         self?.otherUserPhotoURL = url
-                        if isOtherPF {
+                        if otherPf {
                             self?.userImageView.sd_setImage(with: url)
                         } else {
                             self?.userImageView.image = UIImage(systemName: "person.fill")
@@ -823,7 +823,11 @@ final class ChatViewController: MessagesViewController {
         
         let attachment = NSTextAttachment()
         attachment.image = UIImage(named: "notRead")
-        if let isRead = message.isRead, isRead == true, isCurrentReadInfo, isOtherReadInfo {
+        
+        let currentUserReadInfo = getUserSetting(status: .current, setting: .readReceipt)
+        let otherUserReadInfo = getUserSetting(status: .other, setting: .readReceipt)
+        
+        if let isRead = message.isRead, isRead == true, currentUserReadInfo, otherUserReadInfo {
             UIView.animate(withDuration: 0.2) {
                 print(message)
                 attachment.image = UIImage(named: "read")
@@ -922,14 +926,9 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
     func configureAvatarView(_ avatarView: AvatarView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
         
         let sender = message.sender
-        //avatarView.frame.size.height = 26
         
-        //avatarView.frame.size.width = 26// Özelleştirilecek yüksekliği ayarlayın
-        //avatarView.contentMode = .scaleAspectFit
-       // avatarView.frame.origin.y = 26
         if sender.senderId == selfSender?.senderId {
            // put avatarview sender user image
-            
             if let currentUserPhotoURL = self.senderUserPhotoURL {
                 avatarView.sd_setImage(with: currentUserPhotoURL)
             } else {
@@ -945,7 +944,7 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
                         DispatchQueue.main.async {
                             // tekrar tekrar indirme yapmaması için böyle bir yapı kullandık
                             self?.senderUserPhotoURL = url
-                            avatarView.sd_setImage(with: url)
+                             avatarView.sd_setImage(with: url)
                         }
                     case .failure(let error):
                        // avatarView.image = UIImage(systemName: "questionmark")
@@ -955,26 +954,32 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
             }
         } else {
             // put avatarview sender user image
-             if let otherUserPhotoURL = self.otherUserPhotoURL {
-                 avatarView.sd_setImage(with: otherUserPhotoURL)
-             } else {
+            if getUserSetting(status: .other, setting: .profilePhoto) {
+                if let otherUserPhotoURL = self.otherUserPhotoURL {
+                   avatarView.sd_setImage(with: otherUserPhotoURL)
+                } else {
+                    
+                    let email = self.otherUserEmail
+                    let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
+                    let path = "images/\(safeEmail)_profile_picture.png"
+                    StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                        switch result {
+                        case .success(let url):
+                            DispatchQueue.main.async {
+                                self?.otherUserPhotoURL = url
+                                avatarView.sd_setImage(with: url)
+                            }
+                        case .failure(let error):
+                            //avatarView.image = UIImage(systemName: "questionmark")
+                            print(error.localizedDescription)
+                        }
+                    }
+               }
+            } else {
+                avatarView.image = UIImage(systemName: "person.fill")
+            }
+             
                  
-                 let email = self.otherUserEmail
-                 let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-                 let path = "images/\(safeEmail)_profile_picture.png"
-                 StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                     switch result {
-                     case .success(let url):
-                         DispatchQueue.main.async {
-                             self?.otherUserPhotoURL = url
-                             avatarView.sd_setImage(with: url)
-                         }
-                     case .failure(let error):
-                         //avatarView.image = UIImage(systemName: "questionmark")
-                         print(error.localizedDescription)
-                     }
-                 }
-             }
         }
     }
 

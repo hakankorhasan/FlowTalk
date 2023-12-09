@@ -54,7 +54,7 @@ class GoogleSignInManager {
                                                password: "google-password",
                                                emailAddress: email,
                                                isOnline: isOnline,
-                                               lastOnline: lastOnline)
+                                               lastOnline: lastOnline, friends: [], requests: [])
                     
                     DatabaseManager.shared.insertUser(with: chatUser) { success in
                         if success {

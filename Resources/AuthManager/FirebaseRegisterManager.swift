@@ -61,7 +61,7 @@ class FirebaseRegisterManager {
                 UserDefaults.standard.setValue("\(firstName) \(lastName)", forKey: "name")
                 
                 
-                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: countryCode, phoneNumber: phoneNumber, password: password, emailAddress: email, isOnline: false, lastOnline: "")
+                let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: countryCode, phoneNumber: phoneNumber, password: password, emailAddress: email, isOnline: false, lastOnline: "", friends: [], requests: [])
                 
                 DatabaseManager.shared.insertUser(with: chatUser) { success in
                     if success {

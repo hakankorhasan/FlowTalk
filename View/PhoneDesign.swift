@@ -23,22 +23,29 @@ class PhoneDesign: UIView {
     let messageBubble = UIView()
     let antiMessageBubble = UIView()
     
+    let screenHeight = UIScreen.main.bounds.height
+
+    // Ekran yüksekliğinin yüzde 30'u kadar bir değeri `phoneDesign`'ın yüksekliği olarak belirle
+    let phoneDesignHeightPercentage: CGFloat = 0.4
+    
     func setupNavBar() {
         
+        let phoneDesignHeight = screenHeight * phoneDesignHeightPercentage
+        let navbarHeight = (phoneDesignHeight - phoneDesignHeight/1.3)/2
         let lineView = UIView()
         lineView.translatesAutoresizingMaskIntoConstraints = false
         lineView.backgroundColor = .black
         navBarDesign.backgroundColor = .white
         
-        userImageView.widthAnchor.constraint(equalToConstant: 30).isActive = true
-        userImageView.layer.cornerRadius = 15
+        userImageView.widthAnchor.constraint(equalToConstant: navbarHeight-10).isActive = true
+        userImageView.layer.cornerRadius = (navbarHeight-10)/2
         userImageView.backgroundColor = .white
         userImageView.image = UIImage(systemName: "person.circle")
         userImageView.tintColor = .gray
         addSubview(navBarDesign)
         
         navBarDesign.translatesAutoresizingMaskIntoConstraints = false
-        navBarDesign.anchor(top: topAnchor, leading: leadingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 1, left: 1, bottom: 0, right: 1), size: .init(width: 0, height: 40))
+        navBarDesign.anchor(top: topAnchor, leading: leadingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 1, left: 1, bottom: 0, right: 1), size: .init(width: 0, height: (phoneDesignHeight - phoneDesignHeight/1.3)/2))
         
         let stackView =
             HorizontalStackView(arrangedSubviews: [
@@ -55,6 +62,8 @@ class PhoneDesign: UIView {
     }
     
     func setupImageView() {
+        
+        let phoneDesignHeight = screenHeight * phoneDesignHeightPercentage
         imageViewArea.contentMode = .scaleAspectFill
         
         messageBubble.heightAnchor.constraint(equalToConstant: 20).isActive = true
@@ -68,7 +77,7 @@ class PhoneDesign: UIView {
         imageViewArea.backgroundColor = .white
         addSubview(imageViewArea)
         imageViewArea.translatesAutoresizingMaskIntoConstraints = false
-        imageViewArea.anchor(top: navBarDesign.bottomAnchor, leading: leadingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 1, bottom: 0, right: 1), size: .init(width: 0, height: 260))
+        imageViewArea.anchor(top: navBarDesign.bottomAnchor, leading: leadingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 1, bottom: 0, right: 1), size: .init(width: 0, height: phoneDesignHeight/1.3))
         
         imageViewArea.addSubview(tintView)
         tintView.fillSuperview()
@@ -81,17 +90,20 @@ class PhoneDesign: UIView {
     }
     
     func setupTabBarArea() {
+        
+        let phoneDesignHeight = screenHeight * phoneDesignHeightPercentage
+        let tabbarHeight = (phoneDesignHeight - phoneDesignHeight/1.3)/2
         tabBarArea.backgroundColor = .black
         textView.layer.cornerRadius = 12
         textView.backgroundColor = .white
-        sendButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        sendButton.widthAnchor.constraint(equalToConstant: tabbarHeight-10).isActive = true
         sendButton.setImage(UIImage(systemName: "paperplane.fill"), for: .normal)
         sendButton.tintColor = .black
         addSubview(tabBarArea)
         tabBarArea.translatesAutoresizingMaskIntoConstraints = false
-        tabBarArea.anchor(top: imageViewArea.bottomAnchor, leading: leadingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 1, bottom: 0, right: 1), size: .init(width: 0, height: 40))
+        tabBarArea.anchor(top: imageViewArea.bottomAnchor, leading: leadingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 1, bottom: 0, right: 1), size: .init(width: 0, height: tabbarHeight))
         
-        sendButton.layer.cornerRadius = 14
+        sendButton.layer.cornerRadius = (tabbarHeight-10)/2
         sendButton.backgroundColor = .white
         
         let stackView = HorizontalStackView(arrangedSubviews: [

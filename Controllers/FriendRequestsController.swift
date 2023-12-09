@@ -1,14 +1,14 @@
 //
-//  NewConversationsViewController.swift
+//  FriendRequestsController.swift
 //  FlowTalk
 //
-//  Created by Hakan Körhasan on 22.08.2023.
+//  Created by Hakan Körhasan on 9.12.2023.
 //
 
 import UIKit
 import JGProgressHUD
 
-final class NewConversationsViewController: UIViewController {
+class FriendRequestsController: UIViewController {
     
     public var completion: ((SearchResult) -> (Void))?
     
@@ -19,23 +19,20 @@ final class NewConversationsViewController: UIViewController {
     private var hasFetched = false
     
     private let searchBar: UISearchBar = {
-       let sb = UISearchBar()
-        sb.placeholder = "Search for users..."
-        sb.searchTextField.backgroundColor = UIColor.white.withAlphaComponent(0.8)
-        sb.searchTextField.layer.cornerRadius = 10
-        sb.searchTextField.tintColor = .black
+        let sb = UISearchBar()
+        sb.placeholder = "Search for user requests"
         return sb
     }()
     
     private let tableView: UITableView = {
-      let tv = UITableView()
+        let tv = UITableView()
         tv.register(NewConversationCell.self, forCellReuseIdentifier: NewConversationCell.identifier)
         tv.rowHeight = 90
         return tv
     }()
     
     private let noSearchResultsLabel: UILabel = {
-       let label = UILabel()
+        let label = UILabel()
         label.isHidden = true
         label.text = "No results!"
         label.textAlignment = .center
@@ -43,23 +40,21 @@ final class NewConversationsViewController: UIViewController {
         label.font = .systemFont(ofSize: 21, weight: .medium)
         return label
     }()
-
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-
+    
         view.addSubview(noSearchResultsLabel)
         view.addSubview(tableView)
         
         tableView.delegate = self
         tableView.dataSource = self
-        self.view.addGlobalUnsafeAreaView()
-
         searchBar.delegate = self
-        view.backgroundColor = .systemBackground
+        self.view.addGlobalUnsafeAreaView()
+        //searchBar.delegate = self
         navigationController?.navigationBar.topItem?.titleView = searchBar
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(dismissSelf))
-        
-        //bu ekran açılır açılmaz search bar'a tekrar dokunmaya gerek kalmadan arama yapmayı sağlar.
         searchBar.becomeFirstResponder()
     }
     
@@ -75,41 +70,24 @@ final class NewConversationsViewController: UIViewController {
     @objc private func dismissSelf() {
         dismiss(animated: true)
     }
-    
 }
 
-extension NewConversationsViewController: UITableViewDelegate, UITableViewDataSource {
+extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return results.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        let model = results[indexPath.row]
         let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
         //cell.textLabel?.text = results[indexPath.row].name
-        cell.configure(with: model, inController: .newConversationController)
+        let model = results[indexPath.row]
+        cell.configure(with: model, inController: .friendViewController)
         return cell
-    }
-    
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        
-        tableView.deselectRow(at: indexPath, animated: true)
-        // start conversation
-        let targetUserData = results[indexPath.row]
-        
-        dismiss(animated: true) { [weak self] in
-            self?.completion?(targetUserData)
-        }
-    }
-    
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 90
     }
 }
 
-extension NewConversationsViewController: UISearchBarDelegate {
+extension FriendRequestsController: UISearchBarDelegate {
     
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         guard let text = searchBar.text, !text.replacingOccurrences(of: " ", with: "").isEmpty else {

@@ -56,7 +56,7 @@ class FacebookSignInManager {
                     DatabaseManager.shared.userExists(with: email) { exists in
                         if !exists {
                             
-                            let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: 00, phoneNumber: 0000000000, password: "facebook-password", emailAddress: email, isOnline: false, lastOnline: "")
+                            let chatUser = ChatAppUser(firstName: firstName, lastName: lastName, countryCode: 00, phoneNumber: 0000000000, password: "facebook-password", emailAddress: email, isOnline: false, lastOnline: "", friends: [], requests: [])
                             DatabaseManager.shared.insertUser(with: chatUser) { success in
                                 if success {
                                  

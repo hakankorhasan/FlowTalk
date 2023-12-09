@@ -113,79 +113,6 @@ class ConversationTableViewCell: UITableViewCell {
                                         height: (contentView.height-20)/2)
     }
 
-   /* func configure(with model: Conversation) {
-        
-        userMessageLabel.text = model.latestMessage.text
-        usernameLabel.text = model.name
-        let date = model.latestMessage.date
-        var formattedDates = ""
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM dd, yyyy 'at' h:mm:ss a 'GMT'Z"
-
-        if let dateString = dateFormatter.date(from: date) {
-            dateFormatter.dateFormat = "h:mm a"
-            // "AMSymbol" ve "PMSymbol" özelliklerini küçük harfle ayarlayın
-            dateFormatter.amSymbol = "am"
-            dateFormatter.pmSymbol = "pm"
-            let formattedDate = dateFormatter.string(from: dateString)
-            dateLabel.text = formattedDate
-            formattedDates = formattedDate
-            print(formattedDate)
-        } else {
-            print("Date format is incompatible.")
-        }
-      
-        let path = "images/\(model.otherUserEmail)_profile_picture.png"
-        
-        if let cachedImage = loadCacheImage(forkey: cacheKeyPrefix + model.otherUserEmail) {
-            let cachedName = UserDefaults.standard.string(forKey: cacheKeyPrefix + model.otherUserEmail + "_name")
-            let cachedDate = UserDefaults.standard.string(forKey: cacheKeyPrefix + model.otherUserEmail + "_date")
-            let cachedMessage = UserDefaults.standard.string(forKey: cacheKeyPrefix + model.otherUserEmail + "_latest_message")
-            
-            userImageView.image = cachedImage
-            usernameLabel.text = cachedName
-            userMessageLabel.text = cachedMessage
-            dateLabel.text = cachedDate
-        } else  {
-            if isOtherPF {
-                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                    switch result {
-                    case .success(let url):
-                        DispatchQueue.main.async {
-                            self?.userImageView.sd_setImage(with: url)
-                            
-                            self?.saveToCache(image: self?.userImageView.image, name: model.name, date: formattedDates, message: model.latestMessage.text, forkey: (self?.cacheKeyPrefix ?? "") + model.otherUserEmail)
-                        }
-                    case .failure(let error):
-                        print("failed to get image: ",error)
-                    }
-                }
-            } else {
-                self.userImageView.image = UIImage(systemName: "person.fill")
-                self.userImageView.tintColor = .darkGray
-            }
-        }
-        
-    }
-    
-    func saveToCache(image: UIImage?, name: String, date: String, message: String, forkey key: String) {
-        UserDefaults.standard.set(name, forKey: key + "_name")
-        UserDefaults.standard.set(date, forKey: key + "_date")
-        UserDefaults.standard.set(message, forKey: key + "_latest_message")
-        
-        if let image = image,
-            let imageData = image.jpegData(compressionQuality: 1.0) {
-            UserDefaults.standard.setValue(imageData, forKey: key)
-        }
-    }
-    
-    func loadCacheImage(forkey key: String) -> UIImage? {
-        if let cachedImage = UserDefaults.standard.data(forKey: key),
-           let image = UIImage(data: cachedImage) {
-            return image
-        }
-        return nil
-    }*/
     func configure(with model: Conversation) {
         userMessageLabel.text = model.latestMessage.text
         usernameLabel.text = model.name
@@ -223,7 +150,7 @@ class ConversationTableViewCell: UITableViewCell {
         } else {
             // Cache'de veri yok, internetten çek
             print("Cache'de veri yok, internetten çek")
-            if isOtherPF {
+            if getUserSetting(status: .other, setting: .profilePhoto) {
                 StorageManager.shared.downloadUrl(for: path) { [weak self] result in
                     switch result {
                     case .success(let url):

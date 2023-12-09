@@ -35,12 +35,19 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
     
     private let plusButton: UIButton = {
        let btn = UIButton()
-        btn.setImage(UIImage(named: "add"), for: .normal)
+        btn.setImage(UIImage(named: "newmsg"), for: .normal)
         return btn
+    }()
+    
+    private let notificationButton: UIButton = {
+        let notBtn = UIButton()
+        notBtn.setImage(UIImage(named: "notification-bell-3"), for: .normal)
+        return notBtn
     }()
     
     private var loginObserver: NSObjectProtocol?
 
+    private let notificationCountLabel = UILabel()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -133,15 +140,42 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         
         guard let navigationBar = self.navigationController?.navigationBar else { return }
         navigationBar.addSubview(plusButton)
+        navigationBar.addSubview(notificationButton)
       //  plusButton.layer.cornerRadius = Const.ImageSizeForLargeState / 2
+        
         plusButton.clipsToBounds = true
         plusButton.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             plusButton.rightAnchor.constraint(equalTo: navigationBar.rightAnchor,constant: -Const.ImageRightMargin),
             plusButton.bottomAnchor.constraint(equalTo: navigationBar.bottomAnchor, constant: -Const.ImageBottomMarginForLargeState),
-            plusButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState),
+            plusButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState*1.2),
             plusButton.widthAnchor.constraint(equalTo: plusButton.heightAnchor)
                 ])
+        
+        notificationButton.clipsToBounds = true
+        notificationButton.translatesAutoresizingMaskIntoConstraints = true
+        notificationButton.anchor(top: nil, leading: nil, bottom: navigationBar.bottomAnchor, trailing: plusButton.leadingAnchor, padding: .init(top: 0, left: 0, bottom: Const.ImageBottomMarginForLargeState, right: Const.ImageRightMargin))
+        notificationButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState*1.2).isActive = true
+        notificationButton.widthAnchor.constraint(equalTo: notificationButton.heightAnchor).isActive = true
+        notificationButton.addTarget(self, action: #selector(friendsRequests), for: .touchUpInside)
+        
+        notificationCountLabel.backgroundColor = UIColor(#colorLiteral(red: 0.3739683032, green: 0.6619769931, blue: 0.0885688886, alpha: 1))//.black
+        notificationCountLabel.text = "1"
+        notificationCountLabel.textColor = .black
+        notificationCountLabel.textAlignment = .center
+        notificationCountLabel.font = .systemFont(ofSize: 12, weight: .heavy)
+        notificationCountLabel.clipsToBounds = true
+        notificationCountLabel.layer.cornerRadius = 8
+        notificationButton.addSubview(notificationCountLabel)
+        notificationCountLabel.anchor(top: notificationButton.topAnchor, leading: nil, bottom: nil, trailing: notificationButton.trailingAnchor, padding: .init(top: 6, left: 0, bottom: 0, right: 6), size: .init(width: 17, height: 17))
+        
+       
+    }
+    
+    @objc fileprivate func friendsRequests() {
+        let vc = FriendRequestsController()
+        let navVC = UINavigationController(rootViewController: vc)
+        present(navVC, animated: true)
     }
     
     private func moveAndResizeImage(for height: CGFloat) {
@@ -174,6 +208,8 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         plusButton.transform = CGAffineTransform.identity
             .scaledBy(x: scale, y: scale)
             .translatedBy(x: xTranslation, y: yTranslation)
+        
+        notificationButton.transform = CGAffineTransform.identity.scaledBy(x: scale, y: scale).translatedBy(x: xTranslation, y: yTranslation)
        
     }
     
@@ -252,6 +288,7 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
     private func showImage(_ show: Bool) {
         UIView.animate(withDuration: 0.2) {
             self.plusButton.alpha = show ? 1.0 : 0.0
+            self.notificationButton.alpha = show ? 1.0 : 0.0
         }
     }
     
@@ -359,9 +396,10 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         cell.clipsToBounds = true
         let model = conversations[indexPath.row]
         
+       
         if Network.reachability.isReachable {
             // İnternet bağlantısı var, fetch işlemini gerçekleştir
-            DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) { [weak self] in
+            DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) { 
                 // closure içinde self'i weak olarak tanımlamak önemlidir, bu şekilde retain cycle'ı önlemiş olursunuz
                 cell.configure(with: model)
             }

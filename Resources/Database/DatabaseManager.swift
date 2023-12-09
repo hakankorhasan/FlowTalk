@@ -22,6 +22,11 @@ class DatabaseManager {
     
     let cache = NSCache<AnyObject, AnyObject>()
     
+    let lastSeen = getUserSetting(status: .current, setting: .lastSeenInfo)
+    let readInfo = getUserSetting(status: .current, setting: .readReceipt)
+    let onlineInfo = getUserSetting(status: .current, setting: .onlineInfo)
+    let profilePhoto = getUserSetting(status: .current, setting: .profilePhoto)
+    
     static func safeEmail(emaildAddress: String) -> String {
         var safeEmail = emaildAddress.replacingOccurrences(of: ".", with: "-")
         safeEmail = safeEmail.replacingOccurrences(of: "@", with: "-")
@@ -80,6 +85,11 @@ extension DatabaseManager {
             }
         })
         
+        let lastSeen = getUserSetting(status: .current, setting: .lastSeenInfo)
+        let readInfo = getUserSetting(status: .current, setting: .readReceipt)
+        let onlineInfo = getUserSetting(status: .current, setting: .onlineInfo)
+        let profilePhoto = getUserSetting(status: .current, setting: .profilePhoto)
+        
         database.child(user.safeEmail).updateChildValues([
             "first_name": user.firstName,
             "last_name": user.lastName,
@@ -89,10 +99,10 @@ extension DatabaseManager {
             "phone_number": user.phoneNumber,
             "user_password": user.password,
             "user_settings": [
-                "isOpenReadInfo": isCurrentReadInfo,
-                "isOpenLastseenInfo": isCurrentLastSeenInfo,
-                "isHiddenPF": isCurrentPF,
-                "isOpenOnlineInfo": isCurrentOnlineInfo,
+                "isOpenReadInfo": lastSeen,
+                "isOpenLastseenInfo": readInfo,
+                "isHiddenPF": profilePhoto,
+                "isOpenOnlineInfo": onlineInfo,
             ]
         ]) { [weak self] error, _ in
              
@@ -131,10 +141,10 @@ extension DatabaseManager {
                                 "phone_number": user.phoneNumber,
                                 "user_password": user.password,
                                 "user_settings": [
-                                    "isOpenReadInfo": isCurrentReadInfo,
-                                    "isOpenLastseenInfo": isCurrentLastSeenInfo,
-                                    "isHiddenPF": isCurrentPF,
-                                    "isOpenOnlineInfo": isCurrentOnlineInfo,
+                                    "isOpenReadInfo": readInfo,
+                                    "isOpenLastseenInfo": lastSeen,
+                                    "isHiddenPF": profilePhoto,
+                                    "isOpenOnlineInfo": onlineInfo,
                                 ]
                             ]
                             break
@@ -173,11 +183,12 @@ extension DatabaseManager {
             "phone_number": user.phoneNumber,
             "user_password": user.password,
             "user_settings": [
-                "isOpenReadInfo": isCurrentReadInfo,
-                "isOpenLastseenInfo": isCurrentLastSeenInfo,
-                "isHiddenPF": isCurrentPF,
-                "isOpenOnlineInfo": isCurrentOnlineInfo,
-            ]
+                "isOpenReadInfo": readInfo,
+                "isOpenLastseenInfo": lastSeen,
+                "isHiddenPF": profilePhoto,
+                "isOpenOnlineInfo": onlineInfo,
+            ],
+            "friends": user.friends
         ]) { [weak self] error, _ in
             
             guard let strongSelf = self else {
@@ -190,7 +201,14 @@ extension DatabaseManager {
                 return
             }
             
-            strongSelf.database.child("users").observeSingleEvent(of: .value) { snapshot in
+            strongSelf.database.child("users").observeSingleEvent(of: .value) { (snapshot, error) in
+                
+                if let error = error {
+                    print("observeSingleEvent error: \(error)")
+                    completion(false)
+                    return
+                }
+                
                 if var usersCollection = snapshot.value as? [[String: Any]] {
                     //append to use dictionary
                     let newElement: [[String: Any]] = [
@@ -203,11 +221,12 @@ extension DatabaseManager {
                             "phone_number": user.phoneNumber,
                             "user_password": user.password,
                             "user_settings": [
-                                "isOpenReadInfo": isCurrentReadInfo,
-                                "isOpenLastseenInfo": isCurrentLastSeenInfo,
-                                "isHiddenPF": isCurrentPF,
-                                "isOpenOnlineInfo": isCurrentOnlineInfo,
-                            ]
+                                "isOpenReadInfo": self?.readInfo,
+                                "isOpenLastseenInfo": self?.lastSeen,
+                                "isHiddenPF": self?.profilePhoto,
+                                "isOpenOnlineInfo": self?.onlineInfo,
+                            ],
+                            "friends": user.friends
                         ]
                     ]
                     usersCollection.append(contentsOf: newElement)
@@ -232,11 +251,12 @@ extension DatabaseManager {
                             "phone_number": user.phoneNumber,
                             "user_password": user.password,
                             "user_settings": [
-                                "isOpenReadInfo": isCurrentReadInfo,
-                                "isOpenLastseenInfo": isCurrentLastSeenInfo,
-                                "isHiddenPF": isCurrentPF,
-                                "isOpenOnlineInfo": isCurrentOnlineInfo,
-                            ]
+                                "isOpenReadInfo": self?.readInfo,
+                                "isOpenLastseenInfo": self?.lastSeen,
+                                "isHiddenPF": self?.profilePhoto,
+                                "isOpenOnlineInfo": self?.onlineInfo,
+                            ],
+                            "friends": user.friends
                         ]
                     ]
                     
@@ -256,82 +276,35 @@ extension DatabaseManager {
     
     /// Get user settings
     public func fetchUserSettings(safeEmail: String, isCurrentUser: Bool, completion: @escaping () -> Void) {
-        
         let safeEmail = DatabaseManager.safeEmail(emaildAddress: safeEmail)
         let usersRef = Database.database().reference().child("users")
-        
-        
+
         usersRef.observeSingleEvent(of: .value) { snapshot, error in
-            if let error = error {
-                print("Error fetching user data: \(error)")
+            guard error == nil, let usersDataArray = snapshot.value as? [[String: Any]] else {
+                print("Error fetching user data or user data not found in snapshot")
                 return
             }
-            
-            guard let usersDataArray = snapshot.value as? [Any] else {
-                print("User data not found in snapshot")
-                return
-            }
-            
-            var currentUserFound = false
-            
-            
-            for case let userDataDict as [String: Any] in usersDataArray {
-                // Her bir kullanıcı verisinin içinde dolaşabilirsiniz.
-                if let email = userDataDict["email"] as? String,
-                    email == safeEmail,
-                    let userSettings = userDataDict["user_settings"] as? [String: Any] {
-                    
-                    if isCurrentUser {
-                        
-                        if let lastseen = userSettings["isOpenLastseenInfo"] as? Bool {
-                            isCurrentLastSeenInfo = lastseen
-                        }
-                        
-                        if let online = userSettings["isOpenOnlineInfo"] as? Bool {
-                            isCurrentOnlineInfo = online
-                        }
-                        
-                        if let read = userSettings["isOpenReadInfo"] as? Bool {
-                            isCurrentReadInfo = read
-                        }
-                        
-                        if let profileHidden = userSettings["isHiddenPF"] as? Bool {
-                            isCurrentPF = profileHidden
-                        }
-                        
-                        currentUserFound = true
-                        
-                    } else {
-                        if let lastseen = userSettings["isOpenLastseenInfo"] as? Bool {
-                            isOtherLastSeenInfo = lastseen
-                        }
-                        
-                        if let online = userSettings["isOpenOnlineInfo"] as? Bool {
-                            isOtherOnlineInfo = online
-                        }
-                        
-                        if let read = userSettings["isOpenReadInfo"] as? Bool {
-                            isOtherReadInfo = read
-                        }
-                        
-                        if let profileHidden = userSettings["isHiddenPF"] as? Bool {
-                            isOtherPF = profileHidden
-                        }
-                        
-                        currentUserFound = true
-                    }
-            
+
+            for userDataDict in usersDataArray {
+                guard let email = userDataDict["email"] as? String, email == safeEmail,
+                      let userSettings = userDataDict["user_settings"] as? [String: Any] else {
+                    continue
                 }
-               
-            }
-            
-            if currentUserFound {
+                
+                let settings: [UserSetting] = [.lastSeenInfo, .onlineInfo, .profilePhoto, .readReceipt]
+                
+                let status: UserStatus = isCurrentUser ? .current : .other
+                
+                for setting in settings {
+                    setUserSetting(status: status, setting: setting, value: userSettings[setting.rawValue] as? Bool ?? false)
+                }
+                
                 completion()
+                return
             }
-            
         }
-       
     }
+
     
     /// Gets all users from database
     public func getAllUsers(completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
@@ -1113,6 +1086,8 @@ struct ChatAppUser {
     let emailAddress: String
     var isOnline: Bool?
     var lastOnline: String?
+    var friends: [MyFriends]
+    var requests: [MyFriendshipRequests]
     
     var safeEmail: String {
         var safeEmail = emailAddress.replacingOccurrences(of: ".", with: "-")
@@ -1123,5 +1098,24 @@ struct ChatAppUser {
     var profilePictureFileName: String {
         //hakan-gmail-com_profile_picture.png
         return "\(safeEmail)_profile_picture.png"
+    }
+}
+
+struct MyFriends {
+    let otherUserEmail: String
+    var safeEmail: String {
+        var safeEmail = otherUserEmail.replacingOccurrences(of: ".", with: "-")
+        safeEmail = safeEmail.replacingOccurrences(of: "@", with: "-")
+        return safeEmail
+    }
+    
+}
+
+struct MyFriendshipRequests {
+    let userEmailAddress: String
+    var safeEmail: String {
+        var safeEmail = userEmailAddress.replacingOccurrences(of: ".", with: "-")
+        safeEmail = safeEmail.replacingOccurrences(of: "@", with: "-")
+        return safeEmail
     }
 }
