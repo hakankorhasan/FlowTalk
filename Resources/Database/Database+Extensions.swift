@@ -46,18 +46,6 @@ extension DatabaseReference {
                 }
             }
         }
-       /* if let currentEmail = UserDefaults.standard.value(forKey: "email") as? String {
-            let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
-            let usersRef = Database.database().reference().child("users")
-            let userRef = usersRef.child(safeEmail).child("isOnline")
-            
-            userRef.setValue(isOnline) { (error, reference) in
-                if let error = error {
-                    print("isOnline güncelleme hatası: \(error)")
-                } else {
-                    print("isOnline başarıyla güncellendi.")
-                }
-            }
-        }*/
+      
     }
 }

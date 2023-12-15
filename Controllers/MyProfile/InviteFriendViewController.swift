@@ -11,29 +11,168 @@ class InviteFriendViewController: UIViewController {
   
     private let tableView: UITableView = {
         let tv = UITableView()
+        tv.register(NewConversationCell.self, forCellReuseIdentifier: NewConversationCell.identifier)
         return tv
     }()
-        
+    
+    var searchText: String?
+    
+    private var hasFetched = false
+    
     var results = [SearchResult]()
+    
+    private var users = [[String: Any]]()
+    
+    private var safeEmail: String?
+    private var currentUserName: String?
+    
+    init(searchText: String?) {
+        self.searchText = searchText
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.view.addGlobalUnsafeAreaView()
-        view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
         
+        self.view.addGlobalUnsafeAreaView()
+        tableView.delegate = self
+        tableView.dataSource = self
+        view.addSubview(tableView)
+        view.backgroundColor = UIColor(#colorLiteral(red: 0.9638196826, green: 0.9687927365, blue: 1, alpha: 1))
+        tableView.backgroundColor = .clear
+        
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String,
+              let currentName = UserDefaults.standard.value(forKey: "name") as? String else {
+            return
+        }
+        
+        
+        safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUser)
+        currentUserName = currentName
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        tableView.anchor(top: view.safeAreaLayoutGuide.topAnchor, leading: view.leadingAnchor, bottom: view.bottomAnchor, trailing: view.trailingAnchor)
+    }
+    
+    func searchForUsers(with searchText: String) {
+        print("searchusers: \(searchText)")
+         if hasFetched {
+             filterUser(with: searchText)
+         } else {
+             DatabaseManager.shared.getAllUnfollowedUsers { [weak self] result in
+                 switch result {
+                 case .success(let allUsers):
+                     self?.hasFetched = true
+                     self?.users = allUsers
+                 case .failure(let error):
+                     print("failed to get users: \(error.localizedDescription)")
+                 }
+         
+             }
+        }
+    }
+    
+    func filterUser(with term: String?) {
+        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String,
+              hasFetched else {
+            return
+        }
         
-      //  tableView.frame = view.bounds
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        
+        let results: [SearchResult] = users.filter {
+            guard let email = $0["email"] as? String,
+                  email != safeEmail else {
+                return false
+            }
+            
+            guard let name = $0["name"] as? String,
+                  let isOnline = $0["isOnline"] as? Bool else {
+                return false
+            }
+            
+            guard let lastOnline = $0["lastOnline"] as? String else {
+                return false
+            }
+            
+            return name.lowercased().hasPrefix(term?.lowercased() ?? "")
+        }.compactMap {
+            guard let email = $0["email"] as? String,
+                  let name = $0["name"] as? String,
+                  let isOnline = $0["isOnline"] as? Bool,
+                  let lastOnline = $0["lastOnline"] as? String else {
+                return nil
+                
+            }
+            
+            return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
+        }
+        
+        self.results = results
+        updateUI()
+        
+    }
+    
+    func updateUI() {
+        
+        if results.isEmpty {
+            //noSearchResultsLabel.isHidden = false
+            tableView.isHidden = true
+        } else {
+            //noSearchResultsLabel.isHidden = true
+            tableView.isHidden = false
+            tableView.reloadData()
+        }
     }
     
 }
 
-class SearchController: UIViewController, UISearchResultsUpdating, UISearchControllerDelegate {
+extension InviteFriendViewController: UITableViewDelegate, UITableViewDataSource {
     
-    let searchController = UISearchController(searchResultsController: InviteFriendViewController())
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return results.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let model = results[indexPath.row]
+        let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
+        
+        cell.sendRequestButtonHandler = {
+            let otherUserEmail = model.email
+            
+         //aa   DatabaseManager.shared.sendFriendsRequest(currentUser: self.safeEmail ?? "", targetUserEmail: otherUserEmail, completion: )
+            DatabaseManager.shared.sendFriendsRequest(currentUserEmail: self.safeEmail ?? "", currentUserName: self.currentUserName ?? "", targetUserEmail: otherUserEmail) { success in
+                if success {
+                    print("başarılı")
+                } else {
+                    print("yollanamadı")
+                }
+            }
+        }
+        
+        cell.configure(with: model, inController: .inviteFriendsController)
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 90
+    }
+}
+
+class SearchController: UIViewController, UISearchResultsUpdating, UISearchControllerDelegate {
+    
+    
+    private let searchController = UISearchController(searchResultsController: InviteFriendViewController(searchText: nil))
+    
+    private var hasFetched = false
+    
+    lazy var search = ""
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -46,9 +185,9 @@ class SearchController: UIViewController, UISearchResultsUpdating, UISearchContr
         let backButton = UIButton(type: .custom)
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         backButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 15, bottom: 0, right: 0)
-
+        
         let customButton = UIBarButtonItem(customView: backButton)
-        backButton.tintColor = .black
+        backButton.tintColor = .white
         backButton.addTarget(self, action: #selector(handleBack), for: .touchUpInside)
         navigationItem.leftBarButtonItem = customButton
         
@@ -95,8 +234,14 @@ class SearchController: UIViewController, UISearchResultsUpdating, UISearchContr
     }
     
     func updateSearchResults(for searchController: UISearchController) {
-        guard let text = searchController.searchBar.text else {
+        guard let text = searchController.searchBar.text,
+        !text.replacingOccurrences(of: " ", with: "").isEmpty else {
             return
         }
+        
+        if let inviteFriendVC = searchController.searchResultsController as? InviteFriendViewController {
+            inviteFriendVC.searchForUsers(with: text)
+        }
     }
+    
 }

@@ -14,9 +14,12 @@ class FriendRequestsController: UIViewController {
     
     private let spinner = JGProgressHUD(style: .dark)
     
+    var friendshipRequests: [FriendRequest] = []
+    
     private var users = [[String: Any]]()
     private var results = [SearchResult]()
     private var hasFetched = false
+    
     
     private let searchBar: UISearchBar = {
         let sb = UISearchBar()
@@ -45,6 +48,10 @@ class FriendRequestsController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
     
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
         view.addSubview(noSearchResultsLabel)
         view.addSubview(tableView)
         
@@ -56,6 +63,30 @@ class FriendRequestsController: UIViewController {
         navigationController?.navigationBar.topItem?.titleView = searchBar
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(dismissSelf))
         searchBar.becomeFirstResponder()
+        
+        DatabaseManager.shared.fetchFriendshipRequests(currentUserEmail: currentUser) { result in
+            switch result {
+            case .success(let requestsArray):
+               self.friendshipRequests = requestsArray
+                print(self.friendshipRequests)
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                }
+            case .failure(let error):
+                print("error fetch \(error)")
+            }
+        }
+        
+        print(currentUser)
+        DatabaseManager.shared.getFriendRequests(forUserEmail: currentUser, type: .sendedRequests) { result in
+            print("yeni sistem \(result)")
+        }
+    }
+    
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+       // fetchFriendsRequests()
     }
     
     override func viewDidLayoutSubviews() {
@@ -72,17 +103,19 @@ class FriendRequestsController: UIViewController {
     }
 }
 
+
 extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return results.count
+        return friendshipRequests.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
         //cell.textLabel?.text = results[indexPath.row].name
-        let model = results[indexPath.row]
-        cell.configure(with: model, inController: .friendViewController)
+        let model = friendshipRequests[indexPath.row]
+        cell.configureForFriends(with: model, inController: .friendViewController)
+        
         return cell
     }
 }
@@ -168,8 +201,7 @@ extension FriendRequestsController: UISearchBarDelegate {
                   let lastOnline = $0["lastOnline"] as? String else {
                 return nil
             }
-            //let isOnlineString = isOnline ? "true" : "false"
-           // let isOnlineBool = isOnline.lowercased() == "true"
+            
             return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
         }
         self.results = results
