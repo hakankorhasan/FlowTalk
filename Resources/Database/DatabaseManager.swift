@@ -351,27 +351,185 @@ extension DatabaseManager {
         }
     }
     
-    public func getAllUnfollowedUsers(completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
-        database.child("users").observeSingleEvent(of: .value) { snapshot in
-            
-            guard let userCollection = snapshot.value as? [[String: Any]] else {
+    public func getIncomingRequests(type: FriendRequestType, completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        
+        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        let users = database.child("users")
+        let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        users.observeSingleEvent(of: .value) { snapshot in
+            guard let usersValue = snapshot.value as? [[String: Any]] else {
                 completion(.failure(DatabaseError.failedToFetch))
                 return
             }
-            completion(.success(userCollection))
+            
+            guard let userId = self.findUserId(for: safeCurrentEmail, in: usersValue) else {
+                print("user ıd not found")
+                completion(.failure(DatabaseError.failedToFetch))
+                return
+            }
+            
+            let userRef = users.child(userId)
+            
+            var requestsRef: DatabaseReference
+            
+            switch type {
+            case .sendedRequests:
+                requestsRef = userRef.child("sended_requests")
+            case .incomingRequests:
+                requestsRef = userRef.child("incoming_requests")
+            }
+            
+            requestsRef.observeSingleEvent(of: .value) { requestSnapshot in
+                guard let requestsData = requestSnapshot.value as? [[String: Any]] else {
+                    return
+                }
+                completion(.success(requestsData))
+            }
         }
     }
+    
+    public func getAllUnfollowedUsers(completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        database.child("users").observeSingleEvent(of: .value) { snapshot in
+            
+            guard let value = snapshot.value as? [[String: Any]] else  {
+                completion(.failure(DatabaseError.failedToFetch))
+                return
+            }
+            // buradan gelen value yu filtrelicez
+            // current user ı bul
+            // sended requestine git
+            // içinde bulunan e-maillerri value dan ayır/çıkar
+            // value yı geri dön
+            completion(.success(value))
+        }
+    }
+    
+    public func saveToMyFriends(forUserEmail currentUserEmail: String, currentUsername: String, targetUserEmail: String, targetUsername: String, completion: @escaping (Bool) -> Void) {
+        
+        let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        let usersRef = database.child("users")
+        
+        
+        func addFriend(_ userRef: DatabaseReference, email: String, name: String, completion: @escaping (Bool) -> Void) {
+            userRef.observeSingleEvent(of: .value) { snapshot in
+                var requestsArray = snapshot.value as? [[String: Any]] ?? []
+                
+                guard !requestsArray.contains(where: {$0["email"] as? String == email}) else {
+                    print("Friendship request already sent")
+                    completion(false)
+                    return
+                }
+                
+                let friendData: [String: Any] = [
+                    "email": email,
+                    "name": name
+                ]
+                
+                requestsArray.append(friendData)
+                
+                userRef.setValue(requestsArray) { error, _ in
+                    if let error = error {
+                        print("Error sending friendship request: \(error.localizedDescription)")
+                        completion(false)
+                    } else {
+                        print("Friendship request sent successfully")
+                        completion(true)
+                    }
+                }
+            }
+        }
+        
+        func removeFriendRequest(_ userRef: DatabaseReference, email: String, completion: @escaping (Bool) -> Void) {
+            userRef.observeSingleEvent(of: .value) { snapshot in
+                guard var requestData = snapshot.value as? [[String: Any]] else {
+                    completion(false)
+                    return
+                }
+                
+                if let index = requestData.firstIndex(where: { $0["email"] as? String == email }) {
+                    requestData.remove(at: index)
+                    
+                    userRef.setValue(requestData) { error, _ in
+                        if let error = error {
+                            print("Error updating requests: \(error.localizedDescription)")
+                            completion(false)
+                        } else {
+                            print("Request removed successfully")
+                            completion(true)
+                        }
+                    }
+                } else {
+                    completion(false)
+                }
+            }
+        }
+        
+        usersRef.observeSingleEvent(of: .value) { snapshot in
+            
+            guard let usersValue = snapshot.value as? [[String: Any]] else {
+                print("Unexpected data format in 'users' collection")
+                completion(false)
+                return
+            }
+            
+            let currentUserId = self.findUserId(for: safeCurrentEmail, in: usersValue)
+            let targetUserId = self.findUserId(for: targetUserEmail, in: usersValue)
+            
+            guard let currentId = currentUserId, let targetId = targetUserId else {
+                completion(false)
+                return
+            }
+            
+            let currentFriendsRef = usersRef.child(currentId).child("friends")
+            let targetFriendsRef = usersRef.child(targetId).child("friends")
+            let currentIncomingRef = usersRef.child(currentId).child("incoming_requests")
+            let targetSendedRef = usersRef.child(targetId).child("sended_requests")
+            
+            addFriend(currentFriendsRef, email: targetUserEmail, name: targetUsername) { success in
+                guard success else {
+                    completion(false)
+                    return
+                }
+                
+                addFriend(targetFriendsRef, email: currentUserEmail, name: currentUsername) { success in
+                    guard success else {
+                        completion(false)
+                        return
+                    }
+                    
+                    removeFriendRequest(targetSendedRef, email: currentUserEmail) { success in
+                        guard success else {
+                            completion(false)
+                            return
+                        }
+                        
+                        removeFriendRequest(currentIncomingRef, email: targetUserEmail) { success in
+                            completion(success)
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+
+    
     
     public func sendFriendsRequest(currentUserEmail: String,
                                    currentUserName: String,
                                    targetUserEmail: String,
-                                   completion: @escaping (Bool) -> Void) {
+                                   completion: @escaping (Bool, Bool) -> Void) {
+        
         let usersRef = database.child("users")
 
         usersRef.observeSingleEvent(of: .value) { snapshot in
             guard let usersValue = snapshot.value as? [[String: Any]] else {
                 print("Unexpected data format in 'users' collection")
-                completion(false)
+                completion(false, false)
                 return
             }
             
@@ -406,13 +564,13 @@ extension DatabaseManager {
                 
                 guard !requestsArray.contains(where: {$0["email"] as? String == currentUserEmail}) else {
                     print("friendship request already sent")
-                    completion(false)
+                    completion(false, true)
                     return
                 }
                 
                 let requesterData: [String: Any] = [
                     "email": currentUserEmail,
-                    "name": currentUserName
+                    "name": currentUserName,
                 ]
                 
                 requestsArray.append(requesterData)
@@ -420,11 +578,11 @@ extension DatabaseManager {
                 requestRef.setValue(requestsArray) { error, _ in
                     if let error = error {
                         print("Error sending friendship request: \(error.localizedDescription)")
-                        completion(false)
+                        completion(false, false)
                     } else {
                         
                         print("Friendship request sent successfully")
-                        completion(true)
+                        completion(true, false)
                     }
                 }
                 
@@ -442,7 +600,6 @@ extension DatabaseManager {
                 return
             }
             
-            
             let senderUserRef = usersRef.child(foundSenderUser)
             let sentRequestsRef = senderUserRef.child("sended_requests")
             
@@ -452,13 +609,14 @@ extension DatabaseManager {
                 
                 guard !sendedRequests.contains(where: {$0["email"] as? String == targetUserEmail}) else {
                     print("friendship request already sent")
-                    completion(false)
+                    
+                    completion(false, true)
                     return
                 }
                 
                 let requesterOtherData: [String: Any] = [
                     "email": targetUserEmail,
-                    "name": targetUserName
+                    "name": targetUserName,
                 ]
                 
                 sendedRequests.append(requesterOtherData)
@@ -466,11 +624,11 @@ extension DatabaseManager {
                 sentRequestsRef.setValue(sendedRequests) { error, _ in
                     if let error = error {
                         print("Error sending friendship request: \(error.localizedDescription)")
-                        completion(false)
+                        completion(false, false)
                     } else {
                         
                         print("Friendship request sent successfully")
-                        completion(true)
+                        completion(true, false)
                     }
                 }
             }
@@ -479,7 +637,7 @@ extension DatabaseManager {
             
     }
     
-    public func getFriendRequests(forUserEmail userEmail: String, type: FriendRequestType, completion: @escaping ([[String: Any]]?) -> Void) {
+    public func getFriendRequests(forUserEmail userEmail: String, type: FriendRequestType, completion: @escaping ((Result<[FriendRequest], Error>)?) -> Void) {
         let usersRef = database.child("users")
         
         let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: userEmail)
@@ -507,10 +665,22 @@ extension DatabaseManager {
             }
             
             requestsRef.observeSingleEvent(of: .value) { requestsSnapshot in
-                let requestsArray = requestsSnapshot.value as? [[String: Any]] ?? []
-                completion(requestsArray)
+            
+                guard let requestsArray = requestsSnapshot.value as? [[String: Any]] else {
+                    completion(.success([]))
+                    return
+                }
+                
+                let friendRequest: [FriendRequest] = requestsArray.compactMap { requestDict in
+                    guard let email = requestDict["email"] as? String,
+                          let name = requestDict["name"] as? String else {
+                        return nil
+                    }
+                    return FriendRequest(email: email, name: name)
+                }
+                completion(.success(friendRequest))
             }
-
+    
         }
         
     }
@@ -524,53 +694,6 @@ extension DatabaseManager {
         }
         return nil
     }
-    
-    public func fetchFriendshipRequests(currentUserEmail: String, completion: @escaping (Result<[FriendRequest], Error>) -> Void) {
-        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
-        let usersRef = database.child("users")
-
-        usersRef.observe(.value) { (snapshot, error) in
-            guard error == nil, let userDataArray = snapshot.value as? [[String: Any]] else {
-                print("error fetching user data or user data not found in snapshot for fetchrequest")
-                completion(.failure(DatabaseError.failedToFetch))
-                return
-            }
-
-            var currentUserId: String?
-            
-            for (index, userData) in userDataArray.enumerated() {
-                if let email = userData["email"] as? String,
-                   email == safeEmail {
-                    currentUserId = String(index)
-                    break
-                }
-            }
-            
-            guard let foundUser = currentUserId else {
-                return
-            }
-            
-            let currentUserRef = usersRef.child(foundUser)
-            
-            currentUserRef.child("request").observeSingleEvent(of: .value) { requestsSnapshot in
-                guard let requestsArray = requestsSnapshot.value as? [[String: Any]] else {
-                    completion(.success([]))
-                    return
-                }
-                
-                let friendshipRequests: [FriendRequest] = requestsArray.compactMap { requestsDict in
-                    guard let email = requestsDict["email"] as? String,
-                          let name = requestsDict["name"] as? String else {
-                        return nil
-                    }
-                    return FriendRequest(email: email, name: name)
-                }
-                completion(.success(friendshipRequests))
-            }
-           // print(userDataArray)
-        }
-    }
-
 
     
     public enum DatabaseError: Error {

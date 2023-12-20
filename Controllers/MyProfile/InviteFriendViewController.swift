@@ -102,15 +102,14 @@ class InviteFriendViewController: UIViewController {
             }
             
             return name.lowercased().hasPrefix(term?.lowercased() ?? "")
+            
         }.compactMap {
             guard let email = $0["email"] as? String,
                   let name = $0["name"] as? String,
                   let isOnline = $0["isOnline"] as? Bool,
                   let lastOnline = $0["lastOnline"] as? String else {
                 return nil
-                
             }
-            
             return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
         }
         
@@ -143,20 +142,30 @@ extension InviteFriendViewController: UITableViewDelegate, UITableViewDataSource
         let model = results[indexPath.row]
         let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
         
+        cell.configure(with: model, inController: .inviteFriendsController)
+
         cell.sendRequestButtonHandler = {
             let otherUserEmail = model.email
             
          //aa   DatabaseManager.shared.sendFriendsRequest(currentUser: self.safeEmail ?? "", targetUserEmail: otherUserEmail, completion: )
-            DatabaseManager.shared.sendFriendsRequest(currentUserEmail: self.safeEmail ?? "", currentUserName: self.currentUserName ?? "", targetUserEmail: otherUserEmail) { success in
+            DatabaseManager.shared.sendFriendsRequest(currentUserEmail: self.safeEmail ?? "",
+                                                      currentUserName: self.currentUserName ?? "",
+                                                      targetUserEmail: otherUserEmail) { success, isAlreadySent in
                 if success {
-                    print("başarılı")
+                    if let index = self.results.firstIndex(where: { $0.email == otherUserEmail }) {
+                        self.results.remove(at: index)
+                        // Animate the deletion
+                        let indexPath = IndexPath(row: index, section: 0)
+                        self.tableView.deleteRows(at: [indexPath], with: .fade)
+                        self.tableView.reloadData()
+                        //self.updateUI()
+                    }
                 } else {
                     print("yollanamadı")
                 }
             }
         }
-        
-        cell.configure(with: model, inController: .inviteFriendsController)
+
         return cell
     }
     

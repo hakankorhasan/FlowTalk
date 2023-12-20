@@ -13,6 +13,8 @@ class NewConversationCell: UITableViewCell {
     static let identifier = "NewConversationCell"
     
     var sendRequestButtonHandler: (()->())?
+    var acceptButtonHandler: (()->())?
+    var declineButtonHandler: (()->())?
     
     private let userImageView: UIImageView = {
        let iv = UIImageView()
@@ -75,6 +77,7 @@ class NewConversationCell: UITableViewCell {
         acceptButton.tintColor = .black
         acceptButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         acceptButton.clipsToBounds = true
+        acceptButton.addTarget(self, action: #selector(handleAccept), for: .touchUpInside)
     
         declineButton.backgroundColor = #colorLiteral(red: 0.762557646, green: 0, blue: 0, alpha: 1)
         declineButton.layer.borderWidth = 1
@@ -84,6 +87,7 @@ class NewConversationCell: UITableViewCell {
         declineButton.tintColor = .white
         declineButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         declineButton.clipsToBounds = true
+        declineButton.addTarget(self, action: #selector(handleDecline), for: .touchUpInside)
         
         sendRequestButton.backgroundColor = .black
         sendRequestButton.layer.borderWidth = 1
@@ -104,17 +108,6 @@ class NewConversationCell: UITableViewCell {
         sendMessageButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         sendMessageButton.clipsToBounds = true
         
-        
-     /*   userImageView.frame = CGRect(x: 10,
-                                     y: 10,
-                                     width: 64,
-                                     height: 64)
-        
-        usernameLabel.frame = CGRect(x: userImageView.right + 10,
-                                     y: 20,
-                                     width: contentView.width - 20 - userImageView.width,
-                                     height: 48)*/
-        
         userImageView.anchor(top: topAnchor, leading: leadingAnchor, bottom: nil, trailing: nil, padding: .init(top: 10, left: 10, bottom: 0, right: 0), size: .init(width: 64, height: 64))
         usernameLabel.anchor(top: userImageView.topAnchor, leading: userImageView.trailingAnchor, bottom: nil, trailing: nil, padding: .init(top: 0, left: 15, bottom: 0, right: 0), size: .init(width: contentView.width - 20 - userImageView.width, height: 36))
         
@@ -128,6 +121,14 @@ class NewConversationCell: UITableViewCell {
     
     @objc func handleRequest() {
         sendRequestButtonHandler?()
+    }
+    
+    @objc func handleDecline() {
+        declineButtonHandler?()
+    }
+    
+    @objc func handleAccept() {
+        acceptButtonHandler?()
     }
     
     func configureForFriends(with model: FriendRequest, inController controllerType: ControllerType) {
@@ -216,4 +217,5 @@ enum ControllerType {
     case inviteFriendsController
     // İhtiyacınıza göre enum case'leri ekleyebilirsiniz
 }
+
 

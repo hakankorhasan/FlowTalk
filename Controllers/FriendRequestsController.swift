@@ -20,12 +20,8 @@ class FriendRequestsController: UIViewController {
     private var results = [SearchResult]()
     private var hasFetched = false
     
-    
-    private let searchBar: UISearchBar = {
-        let sb = UISearchBar()
-        sb.placeholder = "Search for user requests"
-        return sb
-    }()
+    private var safeEmail: String?
+    private var currentUserName: String?
     
     private let tableView: UITableView = {
         let tv = UITableView()
@@ -48,45 +44,31 @@ class FriendRequestsController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
     
-        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
-            return
-        }
-        
+        title = "My friend requests"
         view.addSubview(noSearchResultsLabel)
         view.addSubview(tableView)
         
         tableView.delegate = self
         tableView.dataSource = self
-        searchBar.delegate = self
+        
         self.view.addGlobalUnsafeAreaView()
         //searchBar.delegate = self
-        navigationController?.navigationBar.topItem?.titleView = searchBar
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(dismissSelf))
-        searchBar.becomeFirstResponder()
-        
-        DatabaseManager.shared.fetchFriendshipRequests(currentUserEmail: currentUser) { result in
-            switch result {
-            case .success(let requestsArray):
-               self.friendshipRequests = requestsArray
-                print(self.friendshipRequests)
-                DispatchQueue.main.async {
-                    self.tableView.reloadData()
-                }
-            case .failure(let error):
-                print("error fetch \(error)")
-            }
+
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String,
+              let currentName = UserDefaults.standard.value(forKey: "name") as? String else {
+            return
         }
         
-        print(currentUser)
-        DatabaseManager.shared.getFriendRequests(forUserEmail: currentUser, type: .sendedRequests) { result in
-            print("yeni sistem \(result)")
-        }
+        safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUser)
+        currentUserName = currentName
+        fetchingIncomingRequests()
     }
     
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-       // fetchFriendsRequests()
+        fetchingIncomingRequests()
     }
     
     override func viewDidLayoutSubviews() {
@@ -98,8 +80,42 @@ class FriendRequestsController: UIViewController {
                                             height: 200)
     }
     
+    private func fetchingIncomingRequests() {
+        
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        DatabaseManager.shared.getFriendRequests(forUserEmail: currentUser, type: .incomingRequests) { result in
+            switch result {
+            case .success(let returnedData):
+                self.friendshipRequests = returnedData
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                }
+            case .failure(let failure):
+                print("fetching error: \(failure)")
+            case .none:
+                print("none value")
+            }
+        }
+    }
+    
     @objc private func dismissSelf() {
         dismiss(animated: true)
+    }
+    
+    
+    func updateUI() {
+        
+        if results.isEmpty {
+            noSearchResultsLabel.isHidden = false
+            tableView.isHidden = true
+        } else {
+            noSearchResultsLabel.isHidden = true
+            tableView.isHidden = false
+            tableView.reloadData()
+        }
     }
 }
 
@@ -114,110 +130,30 @@ extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
         //cell.textLabel?.text = results[indexPath.row].name
         let model = friendshipRequests[indexPath.row]
+        
+        cell.acceptButtonHandler = {
+            let otherUserEmail = model.email
+            let otherUsername = model.name
+            print(otherUserEmail)
+            // save to in friends collection
+            DatabaseManager.shared.saveToMyFriends(forUserEmail: self.safeEmail ?? "", currentUsername: self.currentUserName ?? "", targetUserEmail: otherUserEmail, targetUsername: otherUsername) { success in
+                
+                if success {
+                    if let index = self.friendshipRequests.firstIndex(where: { $0.email == otherUserEmail }) {
+                        
+                        self.friendshipRequests.remove(at: index)
+                        let indexPath = IndexPath(row: index, section: 0)
+                        self.tableView.deleteRows(at: [indexPath], with: .fade)
+                        self.tableView.reloadData()
+                    }
+                }
+            }
+        }
+        
         cell.configureForFriends(with: model, inController: .friendViewController)
         
         return cell
     }
 }
 
-extension FriendRequestsController: UISearchBarDelegate {
-    
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        guard let text = searchBar.text, !text.replacingOccurrences(of: " ", with: "").isEmpty else {
-            return
-        }
-        
-        searchBar.resignFirstResponder()
-        
-        results.removeAll()
-        
-        spinner.show(in: view)
-        searchUsers(query: text)
-    }
-    
-    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        if searchText == "" {
-            results.removeAll()
-            tableView.reloadData()
-            noSearchResultsLabel.isHidden = true
-            // Arama çubuğundaki metni temizle (isteğe bağlı)
-        }
-    }
-    
-    
-    func searchUsers(query: String) {
-        // check if array has firebase results
-        if hasFetched {
-            // if it does: filter
-            filterUsers(with: query)
-        } else {
-            // if not, fetch then filter
-            DatabaseManager.shared.getAllUsers { [weak self] result in
-                switch result {
-                case .success(let allUsers):
-                    self?.hasFetched = true
-                    self?.users = allUsers
-                    self?.filterUsers(with: query)
-                case .failure(let error):
-                    print("failed to get users: \(error.localizedDescription)")
-                }
-            }
-        }
-        
-        // update the UI: either show results or show no results label
-    }
-    
-    func filterUsers(with term: String) {
-        
-        // kullanıcı ararken kendi hesabının çıkmasını engelledik
-        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String, hasFetched else {
-            return
-        }
-        
-        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
-        
-        self.spinner.dismiss()
-        
-        let results: [SearchResult] = users.filter {
-            
-            guard let email = $0["email"] as? String, email != safeEmail else {
-                return false
-            }
 
-            guard let name = $0["name"] as? String, let isOnline = $0["isOnline"] as? Bool else {
-                return false
-            }
-            
-            guard let isOnline = $0["isOnline"] else { return false }
-            
-            guard let lastOnline = $0["lastOnline"] as? String else { return false }
-            
-            return name.lowercased().hasPrefix(term.lowercased())
-        }.compactMap {
-            
-            guard let email = $0["email"] as? String, email != safeEmail,
-                  let name = $0["name"] as? String,
-                  let isOnline = $0["isOnline"] as? Bool,
-                  let lastOnline = $0["lastOnline"] as? String else {
-                return nil
-            }
-            
-            return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
-        }
-        self.results = results
-        
-        updateUI()
-    }
-    
-    func updateUI() {
-        
-        if results.isEmpty {
-            noSearchResultsLabel.isHidden = false
-            tableView.isHidden = true
-        } else {
-            noSearchResultsLabel.isHidden = true
-            tableView.isHidden = false
-            tableView.reloadData()
-        }
-    }
-}
