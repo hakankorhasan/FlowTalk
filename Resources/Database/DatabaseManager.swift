@@ -443,6 +443,66 @@ extension DatabaseManager {
         }
     }
     
+    public func deleteRequest(for currentUserEmail: String, targetUserEmail: String, completion: @escaping (Bool) -> Void) {
+        
+        let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        let safeTargetEmail = DatabaseManager.safeEmail(emaildAddress: targetUserEmail)
+        let usersRef = database.child("users")
+        
+        usersRef.observeSingleEvent(of: .value) { [self] snapshot in
+            
+            guard let usersValue = snapshot.value as? [[String: Any]] else {
+                print("Unexpected data format in 'users' collection")
+                completion(false)
+                return
+            }
+            
+            let currentUserId = self.findUserId(for: safeCurrentEmail, in: usersValue)
+            let targetUserId = self.findUserId(for: targetUserEmail, in: usersValue)
+            
+            guard let currentId = currentUserId, let targetId = targetUserId else {
+                completion(false)
+                return
+            }
+            let currentIncomingRef = usersRef.child(currentId).child("incoming_requests")
+            let targetSendedRef = usersRef.child(targetId).child("sended_requests")
+            
+            removeFriendRequest(currentIncomingRef, email: safeTargetEmail) { success in
+                completion(success)
+            }
+            
+            removeFriendRequest(targetSendedRef, email: safeCurrentEmail) { success in
+                completion(success)
+            }
+        }
+       
+    }
+    
+    func removeFriendRequest(_ userRef: DatabaseReference, email: String, completion: @escaping (Bool) -> Void) {
+        userRef.observeSingleEvent(of: .value) { snapshot in
+            guard var requestData = snapshot.value as? [[String: Any]] else {
+                completion(false)
+                return
+            }
+            
+            if let index = requestData.firstIndex(where: { $0["email"] as? String == email }) {
+                requestData.remove(at: index)
+                
+                userRef.setValue(requestData) { error, _ in
+                    if let error = error {
+                        print("Error updating requests: \(error.localizedDescription)")
+                        completion(false)
+                    } else {
+                        print("Request removed successfully")
+                        completion(true)
+                    }
+                }
+            } else {
+                completion(false)
+            }
+        }
+    }
+    
     public func saveToMyFriends(forUserEmail currentUserEmail: String, currentUsername: String, targetUserEmail: String, targetUsername: String, completion: @escaping (Bool) -> Void) {
         
         let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)

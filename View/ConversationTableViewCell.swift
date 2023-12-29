@@ -62,7 +62,9 @@ class ConversationTableViewCell: UITableViewCell {
         layer.shadowOffset = CGSize(width: 0, height: 1)
         layer.shadowOpacity = 0.5
         layer.shadowRadius = 2.0
-
+        
+        contentView.layer.cornerRadius = 44
+        
         addSubview(userImageView)
         addSubview(usernameLabel)
         addSubview(dateLabel)
@@ -105,7 +107,6 @@ class ConversationTableViewCell: UITableViewCell {
                                  y: usernameLabel.center.y,
                                  width: 60,
                                  height: 20)
-        
         
         userMessageLabel.frame = CGRect(x: userImageView.right + 10,
                                         y: usernameLabel.bottom,

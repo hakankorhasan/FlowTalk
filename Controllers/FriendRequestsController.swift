@@ -151,6 +151,22 @@ extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
             }
         }
         
+        cell.declineButtonHandler = {
+            let otherUserEmail = model.email
+           
+            DatabaseManager.shared.deleteRequest(for: self.safeEmail ?? "", targetUserEmail: otherUserEmail) { success in
+                if success {
+                    if let index = self.friendshipRequests.firstIndex(where: { $0.email == otherUserEmail }) {
+                        
+                        self.friendshipRequests.remove(at: index)
+                        let indexPath = IndexPath(row: index, section: 0)
+                        self.tableView.deleteRows(at: [indexPath], with: .fade)
+                        self.tableView.reloadData()
+                    }
+                }
+            }
+        }
+        
         cell.configureForFriends(with: model, inController: .friendViewController)
         
         return cell
