@@ -117,27 +117,28 @@ class ConversationTableViewCell: UITableViewCell {
         userMessageLabel.text = model.latestMessage.text
         usernameLabel.text = model.name
         let date = model.latestMessage.date
-        var formattedDates = ""
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM dd, yyyy 'at' h:mm:ss a 'GMT'Z"
+                
+        let inputFormatter = DateFormatter()
+        inputFormatter.dateFormat = "dd MMM yyyy 'at' HH:mm:ss 'GMT'Z"
+        inputFormatter.locale = Locale(identifier: "en_US_POSIX")
 
-        if let dateString = dateFormatter.date(from: date) {
-            dateFormatter.dateFormat = "h:mm a"
-            // "AMSymbol" ve "PMSymbol" özelliklerini küçük harfle ayarlayın
-            dateFormatter.amSymbol = "am"
-            dateFormatter.pmSymbol = "pm"
-            let formattedDate = dateFormatter.string(from: dateString)
+        if let dateObject = inputFormatter.date(from: date) {
+            let outputFormatter = DateFormatter()
+            outputFormatter.dateFormat = "h:mm a"
+            outputFormatter.amSymbol = "am"
+            outputFormatter.pmSymbol = "pm"
+
+            let formattedDate = outputFormatter.string(from: dateObject)
             dateLabel.text = formattedDate
-            formattedDates = formattedDate
             print(formattedDate)
         } else {
-            print("Date format is incompatible.")
+            print("Date format conversion failed.")
         }
-
+        
         let path = "images/\(model.otherUserEmail)_profile_picture.png"
         let cacheKey = cacheKeyPrefix + model.otherUserEmail
 
-        if let cachedImage = loadCacheImage(forkey: cacheKey) {
+       /* if let cachedImage = loadCacheImage(forkey: cacheKey) {
             // Önbellekte veri var, cache'den kullan
             let cachedName = UserDefaults.standard.string(forKey: cacheKey + "_name")
             let cachedDate = UserDefaults.standard.string(forKey: cacheKey + "_date")
@@ -147,7 +148,7 @@ class ConversationTableViewCell: UITableViewCell {
             usernameLabel.text = cachedName
             userMessageLabel.text = cachedMessage
             dateLabel.text = cachedDate
-        } else {
+        } else {*/
             // Cache'de veri yok, internetten çek
             print("Cache'de veri yok, internetten çek")
             if getUserSetting(status: .other, setting: .profilePhoto) {
@@ -158,7 +159,7 @@ class ConversationTableViewCell: UITableViewCell {
                             self?.userImageView.sd_setImage(with: url)
 
                             // Save data to cache
-                            self?.saveToCache(image: self?.userImageView.image, name: model.name, date: formattedDates, message: model.latestMessage.text, forkey: cacheKey)
+                        //    self?.saveToCache(image: self?.userImageView.image, name: model.name, date: formattedDates, message: model.latestMessage.text, forkey: cacheKey)
                         }
                     case .failure(let error):
                         print("failed to get image: ", error)
@@ -168,7 +169,7 @@ class ConversationTableViewCell: UITableViewCell {
                 self.userImageView.image = UIImage(systemName: "person.fill")
                 self.userImageView.tintColor = .darkGray
             }
-        }
+        //}
     }
 
     func saveToCache(image: UIImage?, name: String, date: String, message: String, forkey key: String) {

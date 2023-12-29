@@ -55,19 +55,16 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         plusButton.addTarget(self, action: #selector(didTapComposeButton), for: .touchUpInside)
         
         view.addSubview(tableView)
-        tableView.backgroundColor = .clear
         view.addSubview(noConversationsLabel)
         
         noConversationsLabel.isHidden = true
+        
         setupUI()
         setupTableView()
+        
         startListeningForConversations()
         
-        
-       
-       // tableView.backgroundColor = .clear
-        tableView.tableHeaderView = createTableHeader()
-        tableView.backgroundColor = .white
+        fetchingIncomingRequests()
         
         loginObserver = NotificationCenter.default.addObserver(forName: .didLogInNotification, object: nil, queue: .main, using: { [weak self] _ in
             guard let strongSelf = self else {
@@ -83,32 +80,6 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
                                  name: .flagsChanged,
                                  object: nil)
         updateUserInterface()
-    }
-    
-    func updateUserInterface() {
-       
-        print("Reachability Summary")
-        print("Status:", Network.reachability.status)
-        print("HostName:", Network.reachability.hostname ?? "nil")
-        print("Reachable:", Network.reachability.isReachable)
-        print("Wifi:", Network.reachability.isReachableViaWiFi)
-    }
-    
-    @objc func statusManager(_ notification: Notification) {
-        updateUserInterface()
-    }
-    
-    public func createTableHeader() -> UIView? {
-        let headerFrame = UIView(frame: CGRect(x: 0, y: 0, width: self.view.width, height: 40))
-        headerFrame.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
-        let header = UIView()
-        
-        headerFrame.addSubview(header)
-        header.anchor(top: headerFrame.topAnchor, leading: headerFrame.leadingAnchor, bottom: headerFrame.bottomAnchor, trailing: headerFrame.trailingAnchor)
-        header.backgroundColor = .white
-        header.layer.cornerRadius = 24
-        header.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        return headerFrame
     }
     
     override func viewDidLayoutSubviews() {
@@ -131,51 +102,68 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         super.viewWillAppear(animated)
 
         startListeningForConversations()
-
-    }
-  
-    private func setupUI() {
-        // Initial setup for image for Large NavBar state since the the screen always has Large NavBar once it gets opened
-        self.view.addGlobalUnsafeAreaView()
-        
-        guard let navigationBar = self.navigationController?.navigationBar else { return }
-        navigationBar.addSubview(plusButton)
-        navigationBar.addSubview(notificationButton)
-      //  plusButton.layer.cornerRadius = Const.ImageSizeForLargeState / 2
-        
-        plusButton.clipsToBounds = true
-        plusButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            plusButton.rightAnchor.constraint(equalTo: navigationBar.rightAnchor,constant: -Const.ImageRightMargin),
-            plusButton.bottomAnchor.constraint(equalTo: navigationBar.bottomAnchor, constant: -Const.ImageBottomMarginForLargeState),
-            plusButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState*1.2),
-            plusButton.widthAnchor.constraint(equalTo: plusButton.heightAnchor)
-                ])
-        
-        notificationButton.clipsToBounds = true
-        notificationButton.translatesAutoresizingMaskIntoConstraints = true
-        notificationButton.anchor(top: nil, leading: nil, bottom: navigationBar.bottomAnchor, trailing: plusButton.leadingAnchor, padding: .init(top: 0, left: 0, bottom: Const.ImageBottomMarginForLargeState, right: Const.ImageRightMargin))
-        notificationButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState*1.2).isActive = true
-        notificationButton.widthAnchor.constraint(equalTo: notificationButton.heightAnchor).isActive = true
-        notificationButton.addTarget(self, action: #selector(friendsRequests), for: .touchUpInside)
-        
-        notificationCountLabel.backgroundColor = UIColor(#colorLiteral(red: 0.3739683032, green: 0.6619769931, blue: 0.0885688886, alpha: 1))//.black
-        notificationCountLabel.text = "1"
-        notificationCountLabel.textColor = .black
-        notificationCountLabel.textAlignment = .center
-        notificationCountLabel.font = .systemFont(ofSize: 12, weight: .heavy)
-        notificationCountLabel.clipsToBounds = true
-        notificationCountLabel.layer.cornerRadius = 8
-        notificationButton.addSubview(notificationCountLabel)
-        notificationCountLabel.anchor(top: notificationButton.topAnchor, leading: nil, bottom: nil, trailing: notificationButton.trailingAnchor, padding: .init(top: 6, left: 0, bottom: 0, right: 6), size: .init(width: 17, height: 17))
-        
-       
+        fetchingIncomingRequests()
     }
     
-    @objc fileprivate func friendsRequests() {
-        let vc = FriendRequestsController()
-        let navVC = UINavigationController(rootViewController: vc)
-        present(navVC, animated: true)
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        showImage(true)
+        validateAuth()
+    }
+    
+    private func setupTableView() {
+        tableView.separatorStyle = .none
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.backgroundColor = .clear
+        tableView.tableHeaderView = createTableHeader()
+    }
+    
+    private func fetchingIncomingRequests() {
+        
+        guard let currentUser = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        DatabaseManager.shared.getFriendRequests(forUserEmail: currentUser, type: .incomingRequests) { result in
+            switch result {
+            case .success(let returnedData):
+                self.notificationCountLabel.text = "\(returnedData.count)"
+                DispatchQueue.main.async {
+                    self.tableView.reloadData()
+                    
+                }
+            case .failure(let failure):
+                print("fetching error: \(failure)")
+            case .none:
+                print("none value")
+            }
+        }
+    }
+    
+    func updateUserInterface() {
+        print("Reachability Summary")
+        print("Status:", Network.reachability.status)
+        print("HostName:", Network.reachability.hostname ?? "nil")
+        print("Reachable:", Network.reachability.isReachable)
+        print("Wifi:", Network.reachability.isReachableViaWiFi)
+    }
+    
+    @objc func statusManager(_ notification: Notification) {
+        updateUserInterface()
+    }
+    
+    public func createTableHeader() -> UIView? {
+        let headerFrame = UIView(frame: CGRect(x: 0, y: 0, width: self.view.width, height: 40))
+        headerFrame.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
+        let header = UIView()
+        
+        headerFrame.addSubview(header)
+        header.anchor(top: headerFrame.topAnchor, leading: headerFrame.leadingAnchor, bottom: headerFrame.bottomAnchor, trailing: headerFrame.trailingAnchor)
+        header.backgroundColor = .white
+        header.layer.cornerRadius = 24
+        header.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        return headerFrame
     }
     
     private func moveAndResizeImage(for height: CGFloat) {
@@ -227,13 +215,13 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         
         spinner.show(in: view)
         
-        if let cachedConversations = DatabaseManager.shared.getAllConversationsFromCache(for: safeEmail) {
+      /*  if let cachedConversations = DatabaseManager.shared.getAllConversationsFromCache(for: safeEmail) {
             self.spinner.dismiss()
             self.noConversationsLabel.isHidden = cachedConversations.isEmpty ? false : true
             self.tableView.isHidden = cachedConversations.isEmpty ? true : false
             self.conversations = cachedConversations
             self.tableView.reloadData()
-        } else {
+        } else {*/
             DatabaseManager.shared.getAllConversations(for: safeEmail) { [weak self] result in
                 print(result)
                 switch result {
@@ -250,7 +238,7 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
                     self?.tableView.isHidden = false
                     self?.conversations = conversations
                     
-                    DatabaseManager.shared.saveConversationsToCache(conversations, for: safeEmail)
+                  //  DatabaseManager.shared.saveConversationsToCache(conversations, for: safeEmail)
                     
                     DispatchQueue.main.async {
                         self?.tableView.reloadData()
@@ -263,7 +251,7 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
                     print("failed to get convos: \(error)")
                 }
             }
-        }
+       // }
         
     }
     
@@ -294,7 +282,7 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
     
     @objc private func didTapComposeButton() {
         let vc = NewConversationsViewController()
-        vc.completion = { [weak self] result in
+        vc.completionForSearch = { [weak self] result in
             guard let strongSelf = self else {
                 return
             }
@@ -314,6 +302,29 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
             }
     
         }
+        
+        vc.completionForFriends = { [weak self] result in
+            guard let strongSelf = self else {
+                return
+            }
+            
+            let currentConversations = strongSelf.conversations
+            
+            if let targetConversations = currentConversations.first(where: {
+                $0.otherUserEmail == DatabaseManager.safeEmail(emaildAddress: result.email)
+            }) {
+                let vc = ChatViewController(with: targetConversations.otherUserEmail, id: targetConversations.id)
+                vc.isNewConversation = false
+                vc.title = targetConversations.name
+                vc.navigationItem.largeTitleDisplayMode = .never
+                strongSelf.navigationController?.pushViewController(vc, animated: true)
+            } else {
+                strongSelf.createNewConversationFriend(result: result)
+            }
+    
+        }
+        
+        
         let navVC = UINavigationController(rootViewController: vc)
         present(navVC, animated: true)
     }
@@ -349,22 +360,36 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         
     }
     
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        showImage(true)
-       
-        validateAuth()
-    }
-    
-    private func setupTableView() {
-        if traitCollection.userInterfaceStyle == .light {
-           // tableView.backgroundColor = UIColor(red: 0.9590069652, green: 0.9689564109, blue: 1, alpha: 1)
+    private func createNewConversationFriend(result: FriendRequest) {
+        
+        let name = result.name
+        let email = DatabaseManager.safeEmail(emaildAddress: result.email)
+        
+        DatabaseManager.shared.conversationExists(iwth: email) { [weak self] results in
+            guard let strongSelf = self else {
+                return
+            }
+            
+            switch results {
+            case .success(let conversationId):
+                let vc = ChatViewController(with: email, id: conversationId)
+                vc.isNewConversation = false
+                vc.title = name
+                vc.navigationItem.largeTitleDisplayMode = .never
+                strongSelf.navigationController?.pushViewController(vc, animated: true)
+            case .failure(_):
+                let vc = ChatViewController(with: email, id: "")
+                vc.isNewConversation = true
+                vc.title = name
+                vc.navigationController?.navigationBar.prefersLargeTitles = true
+                vc.navigationItem.largeTitleDisplayMode = .never
+                strongSelf.navigationController?.pushViewController(vc, animated: true)
+            }
         }
         
-        tableView.separatorStyle = .none
-        tableView.delegate = self
-        tableView.dataSource = self
+        
     }
+    
     
     private func validateAuth() {
         if FirebaseAuth.Auth.auth().currentUser == nil {
@@ -373,6 +398,52 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
             navControl.modalPresentationStyle = .fullScreen
             present(navControl, animated: true)
         }
+    }
+    
+    @objc fileprivate func friendsRequests() {
+        let vc = FriendRequestsController()
+        let navVC = UINavigationController(rootViewController: vc)
+        present(navVC, animated: true)
+    }
+
+}
+
+extension ConversationsViewController {
+    
+    private func setupUI() {
+        // Initial setup for image for Large NavBar state since the the screen always has Large NavBar once it gets opened
+        self.view.addGlobalUnsafeAreaView()
+        
+        guard let navigationBar = self.navigationController?.navigationBar else { return }
+        navigationBar.addSubview(plusButton)
+        navigationBar.addSubview(notificationButton)
+      //  plusButton.layer.cornerRadius = Const.ImageSizeForLargeState / 2
+        
+        plusButton.clipsToBounds = true
+        plusButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            plusButton.rightAnchor.constraint(equalTo: navigationBar.rightAnchor,constant: -Const.ImageRightMargin),
+            plusButton.bottomAnchor.constraint(equalTo: navigationBar.bottomAnchor, constant: -Const.ImageBottomMarginForLargeState),
+            plusButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState*1.2),
+            plusButton.widthAnchor.constraint(equalTo: plusButton.heightAnchor)
+                ])
+        
+        notificationButton.clipsToBounds = true
+        notificationButton.translatesAutoresizingMaskIntoConstraints = true
+        notificationButton.anchor(top: nil, leading: nil, bottom: navigationBar.bottomAnchor, trailing: plusButton.leadingAnchor, padding: .init(top: 0, left: 0, bottom: Const.ImageBottomMarginForLargeState, right: Const.ImageRightMargin))
+        notificationButton.heightAnchor.constraint(equalToConstant: Const.ImageSizeForLargeState*1.2).isActive = true
+        notificationButton.widthAnchor.constraint(equalTo: notificationButton.heightAnchor).isActive = true
+        notificationButton.addTarget(self, action: #selector(friendsRequests), for: .touchUpInside)
+        
+        notificationCountLabel.backgroundColor = UIColor(#colorLiteral(red: 0.3739683032, green: 0.6619769931, blue: 0.0885688886, alpha: 1))//.black
+        notificationCountLabel.textColor = .black
+        notificationCountLabel.textAlignment = .center
+        notificationCountLabel.font = .systemFont(ofSize: 12, weight: .heavy)
+        notificationCountLabel.clipsToBounds = true
+        notificationCountLabel.layer.cornerRadius = 8
+        notificationButton.addSubview(notificationCountLabel)
+        notificationCountLabel.anchor(top: notificationButton.topAnchor, leading: nil, bottom: nil, trailing: notificationButton.trailingAnchor, padding: .init(top: 6, left: 0, bottom: 0, right: 6), size: .init(width: 17, height: 17))
+        
     }
 
 }
@@ -396,7 +467,6 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
         cell.clipsToBounds = true
         let model = conversations[indexPath.row]
         
-       
         if Network.reachability.isReachable {
             // İnternet bağlantısı var, fetch işlemini gerçekleştir
             DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) { 

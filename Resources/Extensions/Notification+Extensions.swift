@@ -12,5 +12,6 @@ extension Notification.Name {
     static let didLogInNotification = Notification.Name("didLogInNotification")
     static let fetchIncomingRequestsNotification = Notification.Name("fetchIncomingRequestsNotification")
     static let flagsChanged = Notification.Name("FlagsChanged")
+    static let messageChanged = Notification.Name("messageChanged")
 }
 

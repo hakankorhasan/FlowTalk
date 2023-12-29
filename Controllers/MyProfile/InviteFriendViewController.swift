@@ -92,25 +92,27 @@ class InviteFriendViewController: UIViewController {
                 return false
             }
             
-            guard let name = $0["name"] as? String,
-                  let isOnline = $0["isOnline"] as? Bool else {
+            guard let name = $0["name"] as? String
+                 // let isOnline = $0["isOnline"] as? Bool
+            else {
                 return false
             }
             
-            guard let lastOnline = $0["lastOnline"] as? String else {
-                return false
-            }
+          //  guard let lastOnline = $0["lastOnline"] as? String else {
+            //    return false
+           // }
             
             return name.lowercased().hasPrefix(term?.lowercased() ?? "")
             
         }.compactMap {
             guard let email = $0["email"] as? String,
-                  let name = $0["name"] as? String,
-                  let isOnline = $0["isOnline"] as? Bool,
-                  let lastOnline = $0["lastOnline"] as? String else {
+                  let name = $0["name"] as? String
+               //   let isOnline = $0["isOnline"] as? Bool,
+               //   let lastOnline = $0["lastOnline"] as? String
+            else {
                 return nil
             }
-            return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
+            return SearchResult(name: name, email: email/*, isOnline: isOnline, lastOnline: lastOnline*/)
         }
         
         self.results = results

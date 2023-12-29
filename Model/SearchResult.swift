@@ -10,6 +10,6 @@ import Foundation
 struct SearchResult {
     let name: String
     let email: String
-    public var isOnline: Bool?
-    public var lastOnline: String?
+    //public var isOnline: Bool?
+    //public var lastOnline: String?
 }

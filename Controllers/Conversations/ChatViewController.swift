@@ -14,10 +14,10 @@ import AVFoundation
 import FirebaseDatabase
 import CoreLocation
 import Lottie
-
+import UserNotifications
  
 final class ChatViewController: MessagesViewController {
-    
+ 
     //selfSender adlı bir hesaplanmış özellik (computed property) kullanır.
     //Bu özellik, her çağrıldığında UserDefaults ile saklanan e-posta adresini alır ve
     //bu e-posta adresini kullanarak bir Sender nesnesi oluşturur. Bu nesneyi döndürür.
@@ -34,7 +34,6 @@ final class ChatViewController: MessagesViewController {
                displayName: "me",
                senderId: safeEmail)
     }
-    
     
     private let userImageView: UIImageView = {
        let iv = UIImageView()
@@ -66,14 +65,19 @@ final class ChatViewController: MessagesViewController {
         return label
     }()
     
+    private let videoCallButton: UIButton = {
+       let btn = UIButton()
+        btn.setImage(UIImage(named: "video-calling"), for: .normal)
+        return btn
+    }()
+    
     // These variables are used for the userImageView
     private var senderUserPhotoURL: URL?
     private var otherUserPhotoURL: URL?
-    
+
     var longPressGesture: UILongPressGestureRecognizer!
    
     public var isEmptyText: Bool = true
-    
     public let otherUserEmail: String
     public var conversationId: String?
     public var isNewConversation = false
@@ -85,14 +89,16 @@ final class ChatViewController: MessagesViewController {
     private var ref: DatabaseReference!
     private var readRef: DatabaseReference!
     var audioFileName = ""
+    private var conversationPath = ""
     var audioDuration: Date!
     public lazy var audioController = BasicAudioController(messageCollectionView: messagesCollectionView)
     
-    let trashButton = InputBarButtonItem()
-    let paperclipButton = InputBarButtonItem()
-    var animationView = LottieAnimationView(name: "trashJson")
+    private let trashButton = InputBarButtonItem()
+    private let paperclipButton = InputBarButtonItem()
+    private var animationView = LottieAnimationView(name: "trashJson")
    
     private var messages = [Message]()
+    private var bombSoundEffect: AVAudioPlayer?
     
     init(with email: String, id: String?) {
         self.otherUserEmail = email
@@ -106,20 +112,104 @@ final class ChatViewController: MessagesViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
         navigationItem.hidesBackButton = true
         setupMessageCollectionViewDelegate()
+        
         setupOnlineState()
+        
         setupReadState()
-        print("conversationPath: ", conversationPath)
+        
         navBarSetupUI()
+        
         configureGestureRecognizer()
+        
         setupInputButton()
+        
         setupTrashAnimation()
+       
+    }
+    
+    @objc private func handleBack() {
+    //    self.navigationController?.navigationBar.backgroundColor = .clear
+        self.navigationController?.popViewController(animated: true)
+    }
+    
+    var lastMessageDate: Date?
+    var isFirstMessage = true
+    
+    func dataToBeListening(id: String, shouldScrollToBottom: Bool) {
+        listeninForMessage(id: id, shouldScrollToBottom: shouldScrollToBottom)
+        listeningForMessageSounds()
+    }
+    
+    private func listeninForMessage(id: String, shouldScrollToBottom: Bool) {
+        DatabaseManager.shared.getAllMessagesForConversation(with: id) { [weak self] result in
+            switch result {
+            case .success(let messages):
+                guard !messages.isEmpty else  {
+                    return
+                }
+                self?.messages = messages
+                
+                DispatchQueue.main.async {
+                    self?.messagesCollectionView.reloadDataAndKeepOffset()
+                    
+                    if shouldScrollToBottom {
+                        self?.messagesCollectionView.scrollToLastItem()
+                    }
+                }
+            case .failure(let error):
+                print("failed to get messages: ",error.localizedDescription)
+            }
+        }
+        
+    }
+    
+    private func listeningForMessageSounds() {
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentSender().senderId)
+        let messageRef = Database.database().reference().child(self.conversationPath).child("messages")
+        // En son alınan mesajın tarihini saklayın
+        messageRef.queryOrdered(byChild: "date").queryLimited(toLast: 1).observe(.childAdded) { [weak self] snapshot, _ in
+            guard let self = self,
+                  let messageData = snapshot.value as? [String: Any],
+                  let sender = messageData["sender_email"] as? String else {
+                return
+            }
+            
+            // İlk çalıştığında işlemeyi atla
+            guard !self.isFirstMessage else {
+                self.isFirstMessage = false
+                return
+            }
+
+            if sender == safeEmail {
+                // Gönderen, kullanıcı ise bir ses çal
+                self.playNotifSound(named: "take-headphones-out-106535")
+            } else {
+                // Gönderen, diğer kullanıcı ise başka bir ses çal
+                self.playNotifSound(named: "intuition-561")
+            }
+        }
+    }
+   
+    private func playNotifSound(named soundFileName: String) {
+        if let path = Bundle.main.path(forResource: soundFileName, ofType: "mp3") {
+            let url = URL(fileURLWithPath: path)
+
+            do {
+                bombSoundEffect = try AVAudioPlayer(contentsOf: url)
+                bombSoundEffect?.play()
+            } catch {
+                print("Couldn't load sound file: \(error.localizedDescription)")
+            }
+        } else {
+            print("Sound file not found.")
+        }
     }
     
     private func setupMessageCollectionViewDelegate() {
         let viewBack = UIImageView()
+        
         guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
             return
         }
@@ -135,10 +225,9 @@ final class ChatViewController: MessagesViewController {
                 print("error", error)
             }
         }
-       // view.image = UIImage(named: "69 charger")
+        
         viewBack.contentMode = .scaleAspectFit
         messagesCollectionView.backgroundView = viewBack
-     //   messagesCollectionView.backgroundColor = UIColor(white: 0, alpha: blackRatioConstants)
         messagesCollectionView.messagesDataSource = self
         messagesCollectionView.messagesLayoutDelegate = self
         messagesCollectionView.messagesDisplayDelegate = self
@@ -156,35 +245,39 @@ final class ChatViewController: MessagesViewController {
             let bounds = self.navigationController!.navigationBar.bounds
             self.navigationController?.navigationBar.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height + height)
         messageInputBar.inputTextView.becomeFirstResponder()
+        
         if let conversationId = conversationId {
-            listeningForMessages(id: conversationId, shouldScrollToBottom: true)
+            dataToBeListening(id: conversationId, shouldScrollToBottom: true)
         }
         
         if !isNewConversation {
-            let ref = Database.database().reference()
-            guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+            DatabaseManager.shared.updateConversationStatus(otherUserEmail: otherUserEmail)
+        }
+    }
+    
+    private func updateConversationStatus(otherUserEmail: String) {
+        let ref = Database.database().reference()
+        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+        
+        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+        let safeOtherUserEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+        
+        let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        isRoomBeginRef.setValue(true)
+        
+        isRoomBeginRef.observeSingleEvent(of: .value) { (snapshot) in
+            guard let isRoomBeginValue = snapshot.value as? Bool else { return }
             
-            let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
-            let safeOtherUserEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+            let latestMesReadRef = ref.child(safeOtherUserEmail).child("conversations").child("0").child("latest_message").child("is_read")
+            let currentUserUpdate = ref.child(safeCurrEmail).child("conversations").child("0").child("latest_message").child("is_read")
             
-            let isRoomBeginRef = ref.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
-            isRoomBeginRef.setValue(true)
-            
-            isRoomBeginRef.observeSingleEvent(of: .value) { (snapshot) in
-                guard let isRoomBeginValue = snapshot.value as? Bool else { return }
+            if isRoomBeginValue {
+                latestMesReadRef.setValue(true)
+                currentUserUpdate.setValue(true)
                 
-                let latestMesReadRef = ref.child(safeOtherUserEmail).child("conversations").child("0").child("latest_message").child("is_read")
-                let currentUserUpdate = ref.child(safeCurrEmail).child("conversations").child("0").child("latest_message").child("is_read")
-                
-                if isRoomBeginValue {
-                    latestMesReadRef.setValue(true)
-                    currentUserUpdate.setValue(true)
-                    
-                } else {
-                    print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
-                }
+            } else {
+                print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
             }
-            
         }
     }
     
@@ -214,8 +307,6 @@ final class ChatViewController: MessagesViewController {
         showImage(false)
         audioController.stopAnyOngoingPlaying()
     }
-    
-    var conversationPath = ""
     
     override func viewWillAppear(_ animated: Bool) {
         
@@ -256,6 +347,7 @@ final class ChatViewController: MessagesViewController {
 
             }
         }
+        
         setupOnlineState()
     }
     
@@ -291,16 +383,11 @@ final class ChatViewController: MessagesViewController {
         readRef = conversationsRef
         let readChildChanged: (DataSnapshot) -> Void = { snapshot in
             self.isReadCheckMessage(snapshot, refrence: self.readRef)
+            
         }
-
+        
         readUpdateHandler = readRef.observe(.childChanged, with: readChildChanged)
     }
-    
-    @objc private func handleBack() {
-    //    self.navigationController?.navigationBar.backgroundColor = .clear
-        self.navigationController?.popViewController(animated: true)
-    }
-    
     
     private func isReadCheckMessage(_ snapshot: DataSnapshot, refrence: DatabaseReference) {
                 
@@ -320,18 +407,23 @@ final class ChatViewController: MessagesViewController {
 
                                 count += 1
                                 if let messageSenderEmail = messageData["sender_email"] as? String, messageSenderEmail == safeOtherEmail {
-                                   
+                                    
                                     let messageRef = updateMessageRef.child("\(count-1)").child("is_read")
                                     messageRef.setValue(true)
+                                   
                                 }
                             }
                         }
+                       
                     }
+                    
                 } else {
                     print("Kullanıcı odada değil mesajları göremiyor")
                 }
             }
+           
         }
+        
       
     }
     
@@ -368,11 +460,6 @@ final class ChatViewController: MessagesViewController {
         
     }
     
-    private let videoCallButton: UIButton = {
-       let btn = UIButton()
-        btn.setImage(UIImage(named: "video-calling"), for: .normal)
-        return btn
-    }()
     
     private func showImage(_ show: Bool) {
         UIView.animate(withDuration: 0.2) {
@@ -392,12 +479,8 @@ final class ChatViewController: MessagesViewController {
         videoCallButton.addTarget(self, action: #selector(handleVideoCall), for: .touchUpInside)
         videoCallButton.clipsToBounds = true
         videoCallButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            videoCallButton.rightAnchor.constraint(equalTo: navigationBar.rightAnchor, constant: -Const.ImageRightMargin),
-            videoCallButton.bottomAnchor.constraint(equalTo: navigationBar.bottomAnchor, constant: -10),
-            videoCallButton.heightAnchor.constraint(equalToConstant: 32),
-            videoCallButton.widthAnchor.constraint(equalToConstant: 32)
-        ])
+        
+        videoCallButton.anchor(top: nil, leading: nil, bottom: navigationBar.bottomAnchor, trailing: navigationBar.trailingAnchor, padding: .init(top: 0, left: 0, bottom: 10, right: Const.ImageRightMargin), size: .init(width: 32, height: 32))
         
         onlineDotView.layer.cornerRadius = 5
         onlineDotView.layer.masksToBounds = true
@@ -465,10 +548,7 @@ final class ChatViewController: MessagesViewController {
         constraint.priority = .defaultLow
         
         let stackView = UIStackView(arrangedSubviews: [horizontalStackView, spacer])
-        //stackView.distribution = .
-        //stackView.alignment = .leading
-       
-        // Özel bir boşluk ekleyerek backButton'un sağında 20 birimlik boşluk bırakabiliriz.
+        
         let spacer2 = UIBarButtonItem(barButtonSystemItem: .fixedSpace, target: nil, action: nil)
         spacer2.width = 10
 
@@ -793,30 +873,6 @@ final class ChatViewController: MessagesViewController {
         present(actionSheet, animated: true)
     }
     
-    func listeningForMessages(id: String, shouldScrollToBottom: Bool) {
-        //setupOnlineState()
-        DatabaseManager.shared.getAllMessagesForConversation(with: id) { [weak self] result in
-            switch result {
-            case .success(let messages):
-                guard !messages.isEmpty else  {
-                    return
-                }
-                self?.messages = messages
-                
-                DispatchQueue.main.async {
-                    self?.messagesCollectionView.reloadDataAndKeepOffset()
-                    
-                    if shouldScrollToBottom {
-                        self?.messagesCollectionView.scrollToLastItem()
-                    }
-                }
-            case .failure(let error):
-                print("failed to get messages: ",error.localizedDescription)
-            }
-        }
-    }
-    
-    
     func messageBottomLabelAttributedText(for message: MessageKit.MessageType, at indexPath: IndexPath) -> NSAttributedString? {
         
         let dateString = Util.getStringFromDate(format: "HH:mm dd/MM/YYYY", date: message.sentDate)
@@ -881,6 +937,7 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
     }
     
     func messageForItem(at indexPath: IndexPath, in messagesCollectionView: MessageKit.MessagesCollectionView) -> MessageKit.MessageType {
+        
         return messages[indexPath.section]
     }
     
@@ -985,7 +1042,6 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
 
 }
 
-
 extension ChatViewController: AVAudioRecorderDelegate, AVAudioPlayerDelegate{}
 
 extension ChatViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
@@ -1031,6 +1087,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                     DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message) { success in
                         if success {
                             print("sent photo message")
+                           
                         }
                         else {
                             print("failed to sent photo message")
@@ -1101,8 +1158,9 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
     }
     
     func inputBar(_ inputBar: InputBarAccessoryView, didPressSendButtonWith text: String) {
-        
-       
+        //self.playNotifSound(named: "mySended")
+        //self.playNotifSound(named: "computerwav-14702")
+        //self.playNotifSound(named: "take-headphones-out-106535")
         if !isEmptyText {
             guard !text.replacingOccurrences(of: " ", with: "").isEmpty,
                   let selfSender = self.selfSender,
@@ -1126,7 +1184,7 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
                         let mewConversationId = "conversation_\(message.messageId)"
                         self?.conversationId = mewConversationId
                         converId = mewConversationId
-                        self?.listeningForMessages(id: mewConversationId, shouldScrollToBottom: true)
+                        self?.dataToBeListening(id: mewConversationId, shouldScrollToBottom: true)
                         self?.messageInputBar.inputTextView.text = nil
                     }
                     else {
@@ -1145,11 +1203,15 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
                     if success {
                         self?.messageInputBar.inputTextView.text = nil
                         print("message sent")
+                        
+                        
                     }
                     else {
                         print("failed to sent")
                     }
                 }
+                
+                
             }
         }
         else if isEmptyText {
@@ -1176,7 +1238,6 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
         return newIdentifier
     }
 }
-
 
 extension ChatViewController: MessageCellDelegate {
     

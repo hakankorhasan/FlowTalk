@@ -10,13 +10,29 @@ import JGProgressHUD
 
 final class NewConversationsViewController: UIViewController {
     
-    public var completion: ((SearchResult) -> (Void))?
+    public var completionForSearch: ((SearchResult) -> (Void))?
+    public var completionForFriends: ((FriendRequest) -> (Void))?
     
     private let spinner = JGProgressHUD(style: .dark)
     
     private var users = [[String: Any]]()
-    private var results = [SearchResult]()
+    
+    private var resultsSearch = [SearchResult]()
+    
+    private var resultsFriends = [FriendRequest]()
+    
     private var hasFetched = false
+    
+    let segmentedControl: UISegmentedControl = {
+       let sc = UISegmentedControl(items: ["My Friends", "Search"])
+        sc.selectedSegmentIndex = 0
+        sc.selectedSegmentTintColor = .white
+        sc.backgroundColor = #colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171)
+        sc.constrainHeight(constant: 40)
+        sc.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: .normal)
+        sc.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor(#colorLiteral(red: 0.1784554124, green: 0.2450254858, blue: 0.3119192123, alpha: 0.7805301171))] , for: UIControl.State.selected)
+        return sc
+    }()
     
     private let searchBar: UISearchBar = {
        let sb = UISearchBar()
@@ -49,18 +65,28 @@ final class NewConversationsViewController: UIViewController {
 
         view.addSubview(noSearchResultsLabel)
         view.addSubview(tableView)
-        
+        navigationItem.title = "My Friends"
         tableView.delegate = self
         tableView.dataSource = self
+        segmentedControl.constrainWidth(constant: view.width)
+        
+        let padding: CGFloat = 16.0
+        segmentedControl.constrainWidth(constant: view.width - 2 * padding)
+        tableView.tableHeaderView = segmentedControl
+        segmentedControl.centerXAnchor.constraint(equalTo: tableView.centerXAnchor).isActive = true
+        segmentedControl.topAnchor.constraint(equalTo: tableView.topAnchor).isActive = true
+        
+        segmentedControl.addTarget(self, action: #selector(segmentCOntrolValueChanged), for: .valueChanged)
+
         self.view.addGlobalUnsafeAreaView()
 
         searchBar.delegate = self
         view.backgroundColor = .systemBackground
-        navigationController?.navigationBar.topItem?.titleView = searchBar
+       // navigationController?.navigationBar.topItem?.titleView = searchBar
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(dismissSelf))
-        
+        fetchForSegmentFirst()
         //bu ekran açılır açılmaz search bar'a tekrar dokunmaya gerek kalmadan arama yapmayı sağlar.
-        searchBar.becomeFirstResponder()
+        //searchBar.becomeFirstResponder()
     }
     
     override func viewDidLayoutSubviews() {
@@ -72,8 +98,64 @@ final class NewConversationsViewController: UIViewController {
                                             height: 200)
     }
     
+    @objc private func segmentCOntrolValueChanged() {
+        if segmentedControl.selectedSegmentIndex == 0 {
+            hidesSearchBar()
+            self.resultsSearch = []
+            self.fetchForSegmentFirst()
+            // fetch my friends from database
+            searchBar.text = ""
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
+            
+            
+        } else {
+            DispatchQueue.main.async {
+                self.resultsFriends = []
+                self.tableView.reloadData()
+            }
+            
+            showSearchBar()
+        }
+    }
+    
+    private func showSearchBar() {
+        navigationController?.navigationBar.topItem?.titleView = searchBar
+        searchBar.becomeFirstResponder()
+    }
+    
+    private func hidesSearchBar() {
+        navigationItem.titleView = nil
+        navigationItem.title = "My Friends"
+        searchBar.resignFirstResponder()
+    }
+    
     @objc private func dismissSelf() {
         dismiss(animated: true)
+    }
+    
+    private func fetchForSegmentFirst() {
+        DatabaseManager.shared.fetchMyFriends { result in
+            switch result {
+            case .success(let userFriendsData):
+                // Arkadaşları results dizisine ekle
+                       self.resultsFriends += userFriendsData.compactMap { friendData in
+                           guard let name = friendData["name"] as? String,
+                                 let email = friendData["email"] as? String else {
+                               print("nill")
+                               return nil
+                           }
+                           return FriendRequest(email: email, name: name)
+                       }
+                       
+                       // Tabloyu güncelle
+                       self.updateUI()
+                
+            case .failure(let failure):
+                print("failure \(failure)")
+            }
+        }
     }
     
 }
@@ -81,27 +163,55 @@ final class NewConversationsViewController: UIViewController {
 extension NewConversationsViewController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return results.count
+        if segmentedControl.selectedSegmentIndex == 0 {
+            return resultsFriends.count
+        } else {
+            return resultsSearch.count
+        }
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let model = results[indexPath.row]
-        let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
-        //cell.textLabel?.text = results[indexPath.row].name
-        cell.configure(with: model, inController: .newConversationController)
-        return cell
+        if segmentedControl.selectedSegmentIndex == 0 
+        {
+            let model = resultsFriends[indexPath.row]
+            let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
+            //cell.textLabel?.text = results[indexPath.row].name
+            cell.configureForFriends(with: model, inController: .newConversationController)
+            return cell
+        }
+        else
+        {
+            let model = resultsSearch[indexPath.row]
+            let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
+            //cell.textLabel?.text = results[indexPath.row].name
+            cell.configure(with: model, inController: .newConversationController)
+            return cell
+        }
+
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
         tableView.deselectRow(at: indexPath, animated: true)
         // start conversation
-        let targetUserData = results[indexPath.row]
-        
-        dismiss(animated: true) { [weak self] in
-            self?.completion?(targetUserData)
+        if segmentedControl.selectedSegmentIndex == 0
+        {
+            let targetUserData = resultsFriends[indexPath.row]
+            
+            dismiss(animated: true) { [weak self] in
+                self?.completionForFriends?(targetUserData)
+            }
         }
+        else
+        {
+            let targetUserData = resultsSearch[indexPath.row]
+            
+            dismiss(animated: true) { [weak self] in
+                self?.completionForSearch?(targetUserData)
+            }
+        }
+        
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
@@ -118,7 +228,7 @@ extension NewConversationsViewController: UISearchBarDelegate {
         
         searchBar.resignFirstResponder()
         
-        results.removeAll()
+        resultsSearch.removeAll()
         
         spinner.show(in: view)
         searchUsers(query: text)
@@ -126,7 +236,7 @@ extension NewConversationsViewController: UISearchBarDelegate {
     
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         if searchText == "" {
-            results.removeAll()
+            resultsSearch.removeAll()
             tableView.reloadData()
             noSearchResultsLabel.isHidden = true
             // Arama çubuğundaki metni temizle (isteğe bağlı)
@@ -141,7 +251,7 @@ extension NewConversationsViewController: UISearchBarDelegate {
             filterUsers(with: query)
         } else {
             // if not, fetch then filter
-            DatabaseManager.shared.getAllUsers { [weak self] result in
+            DatabaseManager.shared.getAllFriends { [weak self] result in
                 switch result {
                 case .success(let allUsers):
                     self?.hasFetched = true
@@ -173,41 +283,51 @@ extension NewConversationsViewController: UISearchBarDelegate {
                 return false
             }
 
-            guard let name = $0["name"] as? String, let isOnline = $0["isOnline"] as? Bool else {
+            guard let name = $0["name"] as? String else {
                 return false
             }
-            
-            guard let isOnline = $0["isOnline"] else { return false }
-            
-            guard let lastOnline = $0["lastOnline"] as? String else { return false }
             
             return name.lowercased().hasPrefix(term.lowercased())
         }.compactMap {
             
             guard let email = $0["email"] as? String, email != safeEmail,
-                  let name = $0["name"] as? String,
-                  let isOnline = $0["isOnline"] as? Bool,
-                  let lastOnline = $0["lastOnline"] as? String else {
+                  let name = $0["name"] as? String else {
                 return nil
             }
-            //let isOnlineString = isOnline ? "true" : "false"
-           // let isOnlineBool = isOnline.lowercased() == "true"
-            return SearchResult(name: name, email: email, isOnline: isOnline, lastOnline: lastOnline)
+            
+            return SearchResult(name: name, email: email)
+            
         }
-        self.results = results
+        
+        self.resultsSearch = results
         
         updateUI()
     }
     
     func updateUI() {
         
-        if results.isEmpty {
-            noSearchResultsLabel.isHidden = false
-            tableView.isHidden = true
-        } else {
-            noSearchResultsLabel.isHidden = true
-            tableView.isHidden = false
-            tableView.reloadData()
+        if segmentedControl.selectedSegmentIndex == 0
+        {
+            if resultsFriends.isEmpty {
+                noSearchResultsLabel.isHidden = false
+                tableView.isHidden = true
+            } else {
+                noSearchResultsLabel.isHidden = true
+                tableView.isHidden = false
+                tableView.reloadData()
+            }
         }
+        else
+        {
+            if resultsSearch.isEmpty {
+                noSearchResultsLabel.isHidden = false
+                tableView.isHidden = true
+            } else {
+                noSearchResultsLabel.isHidden = true
+                tableView.isHidden = false
+                tableView.reloadData()
+            }
+        }
+       
     }
 }

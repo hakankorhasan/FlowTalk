@@ -351,6 +351,41 @@ extension DatabaseManager {
         }
     }
     
+    public func getAllFriends(completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        
+        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        
+        database.child("users").observeSingleEvent(of: .value) { snapshot in
+            
+            
+            guard let value = snapshot.value as? [[String: Any]] else  {
+                completion(.failure(DatabaseError.failedToFetch))
+                return
+            }
+            
+            guard let userId = self.findUserId(for: safeEmail, in: value) else {
+                print("user ıd not found")
+                completion(.failure(DatabaseError.failedToFetch))
+                return
+            }
+            
+            let userFriendsRef = self.database.child("users").child(userId).child("friends")
+            
+            userFriendsRef.observeSingleEvent(of: .value) { friendSnapshot in
+                guard let friendValues = friendSnapshot.value as? [[String: Any]] else {
+                    return
+                }
+                
+                completion(.success(friendValues))
+            }
+
+        }
+    }
+    
     public func getIncomingRequests(type: FriendRequestType, completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
         
         guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String else {
@@ -517,6 +552,37 @@ extension DatabaseManager {
         
     }
 
+    public func fetchMyFriends(completion: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        
+        let usersRef = database.child("users")
+        
+        usersRef.observeSingleEvent(of: .value) { snapshot in
+            
+            guard let usersData = snapshot.value as? [[String: Any]] else {
+                return
+            }
+            
+            guard let findUserId = self.findUserId(for: safeCurrEmail, in: usersData) else {
+                return
+            }
+            
+            let currUserFriendsRef = usersRef.child(findUserId).child("friends")
+            
+            currUserFriendsRef.observeSingleEvent(of: .value) { friendSnapshot in
+                guard let userFriendsData = friendSnapshot.value as? [[String: Any]] else {
+                    return
+                }
+                
+                completion(.success(userFriendsData))
+            }
+        }
+        
+    }
     
     
     public func sendFriendsRequest(currentUserEmail: String,
@@ -781,7 +847,7 @@ extension DatabaseManager {
             let recipient_newConversationsData: [String: Any] = [
                 "id": conversationID,
                 "isRoomBeginIn": false,
-                "Searcother_user_email": safeEmail,
+                "other_user_email": safeEmail,
                 "name": currentName,
                 "latest_message": [
                     "date": dateString,
@@ -1457,6 +1523,33 @@ extension DatabaseManager {
             }
         }
     }
+    
+    public func updateConversationStatus(otherUserEmail: String) {
+        
+        guard let currentEmail = UserDefaults.standard.value(forKey: "email") as? String else {return}
+        
+        let safeCurrEmail = DatabaseManager.safeEmail(emaildAddress: currentEmail)
+        let safeOtherUserEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+        
+        let isRoomBeginRef = database.child("\(safeCurrEmail)").child("conversations").child("0").child("isRoomBeginIn")
+        isRoomBeginRef.setValue(true)
+        
+        isRoomBeginRef.observeSingleEvent(of: .value) { (snapshot) in
+            guard let isRoomBeginValue = snapshot.value as? Bool else { return }
+            
+            let latestMesReadRef = self.database.child(safeOtherUserEmail).child("conversations").child("0").child("latest_message").child("is_read")
+            let currentUserUpdate = self.database.child(safeCurrEmail).child("conversations").child("0").child("latest_message").child("is_read")
+            
+            if isRoomBeginValue {
+                latestMesReadRef.setValue(true)
+                currentUserUpdate.setValue(true)
+                
+            } else {
+                print("\(safeOtherUserEmail) kullanıcısı oda da değil mesjaınızı göremez")
+            }
+        }
+    }
+    
 }
 
 struct ChatAppUser {

@@ -15,7 +15,7 @@ class FriendRequestsController: UIViewController {
     private let spinner = JGProgressHUD(style: .dark)
     
     var friendshipRequests: [FriendRequest] = []
-    
+        
     private var users = [[String: Any]]()
     private var results = [SearchResult]()
     private var hasFetched = false
@@ -92,6 +92,7 @@ class FriendRequestsController: UIViewController {
                 self.friendshipRequests = returnedData
                 DispatchQueue.main.async {
                     self.tableView.reloadData()
+                    
                 }
             case .failure(let failure):
                 print("fetching error: \(failure)")
@@ -134,7 +135,7 @@ extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
         cell.acceptButtonHandler = {
             let otherUserEmail = model.email
             let otherUsername = model.name
-            print(otherUserEmail)
+           
             // save to in friends collection
             DatabaseManager.shared.saveToMyFriends(forUserEmail: self.safeEmail ?? "", currentUsername: self.currentUserName ?? "", targetUserEmail: otherUserEmail, targetUsername: otherUsername) { success in
                 
