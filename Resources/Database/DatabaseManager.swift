@@ -478,7 +478,7 @@ extension DatabaseManager {
        
     }
     
-    func removeFriendRequest(_ userRef: DatabaseReference, email: String, completion: @escaping (Bool) -> Void) {
+     func removeFriendRequest(_ userRef: DatabaseReference, email: String, completion: @escaping (Bool) -> Void) {
         userRef.observeSingleEvent(of: .value) { snapshot in
             guard var requestData = snapshot.value as? [[String: Any]] else {
                 completion(false)
@@ -503,65 +503,40 @@ extension DatabaseManager {
         }
     }
     
+    func addFriend(_ userRef: DatabaseReference, email: String, name: String, completion: @escaping (Bool) -> Void) {
+        userRef.observeSingleEvent(of: .value) { snapshot in
+            var requestsArray = snapshot.value as? [[String: Any]] ?? []
+            
+            guard !requestsArray.contains(where: {$0["email"] as? String == email}) else {
+                print("Friendship request already sent")
+                completion(false)
+                return
+            }
+            
+            let friendData: [String: Any] = [
+                "email": email,
+                "name": name
+            ]
+            
+            requestsArray.append(friendData)
+            
+            userRef.setValue(requestsArray) { error, _ in
+                if let error = error {
+                    print("Error sending friendship request: \(error.localizedDescription)")
+                    completion(false)
+                } else {
+                    print("Friendship request sent successfully")
+                    completion(true)
+                }
+            }
+        }
+    }
+    
+    
     public func saveToMyFriends(forUserEmail currentUserEmail: String, currentUsername: String, targetUserEmail: String, targetUsername: String, completion: @escaping (Bool) -> Void) {
         
         let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
         let usersRef = database.child("users")
-        
-        
-        func addFriend(_ userRef: DatabaseReference, email: String, name: String, completion: @escaping (Bool) -> Void) {
-            userRef.observeSingleEvent(of: .value) { snapshot in
-                var requestsArray = snapshot.value as? [[String: Any]] ?? []
-                
-                guard !requestsArray.contains(where: {$0["email"] as? String == email}) else {
-                    print("Friendship request already sent")
-                    completion(false)
-                    return
-                }
-                
-                let friendData: [String: Any] = [
-                    "email": email,
-                    "name": name
-                ]
-                
-                requestsArray.append(friendData)
-                
-                userRef.setValue(requestsArray) { error, _ in
-                    if let error = error {
-                        print("Error sending friendship request: \(error.localizedDescription)")
-                        completion(false)
-                    } else {
-                        print("Friendship request sent successfully")
-                        completion(true)
-                    }
-                }
-            }
-        }
-        
-        func removeFriendRequest(_ userRef: DatabaseReference, email: String, completion: @escaping (Bool) -> Void) {
-            userRef.observeSingleEvent(of: .value) { snapshot in
-                guard var requestData = snapshot.value as? [[String: Any]] else {
-                    completion(false)
-                    return
-                }
-                
-                if let index = requestData.firstIndex(where: { $0["email"] as? String == email }) {
-                    requestData.remove(at: index)
-                    
-                    userRef.setValue(requestData) { error, _ in
-                        if let error = error {
-                            print("Error updating requests: \(error.localizedDescription)")
-                            completion(false)
-                        } else {
-                            print("Request removed successfully")
-                            completion(true)
-                        }
-                    }
-                } else {
-                    completion(false)
-                }
-            }
-        }
         
         usersRef.observeSingleEvent(of: .value) { snapshot in
             
@@ -584,25 +559,25 @@ extension DatabaseManager {
             let currentIncomingRef = usersRef.child(currentId).child("incoming_requests")
             let targetSendedRef = usersRef.child(targetId).child("sended_requests")
             
-            addFriend(currentFriendsRef, email: targetUserEmail, name: targetUsername) { success in
+            self.addFriend(currentFriendsRef, email: targetUserEmail, name: targetUsername) { success in
                 guard success else {
                     completion(false)
                     return
                 }
                 
-                addFriend(targetFriendsRef, email: currentUserEmail, name: currentUsername) { success in
+                self.addFriend(targetFriendsRef, email: currentUserEmail, name: currentUsername) { success in
                     guard success else {
                         completion(false)
                         return
                     }
                     
-                    removeFriendRequest(targetSendedRef, email: currentUserEmail) { success in
+                    self.removeFriendRequest(targetSendedRef, email: currentUserEmail) { success in
                         guard success else {
                             completion(false)
                             return
                         }
                         
-                        removeFriendRequest(currentIncomingRef, email: targetUserEmail) { success in
+                        self.removeFriendRequest(currentIncomingRef, email: targetUserEmail) { success in
                             completion(success)
                         }
                     }
@@ -871,15 +846,25 @@ extension DatabaseManager {
                     message = messageText
             case .attributedText(_):
                 break
-            case .photo(_):
+            case .photo(let mediaItem):
+                if let targetUrlString = mediaItem.url?.absoluteString {
+                    message = targetUrlString
+                }
                 break
-            case .video(_):
+            case .video(let mediaItem):
+                if let targetUrlString = mediaItem.url?.absoluteString {
+                    message = targetUrlString
+                }
                 break
-            case .location(_):
+            case .location(let locationData):
+                let location = locationData.location
+                message = "\(location.coordinate.longitude),\(location.coordinate.latitude)"
                 break
             case .emoji(_):
                 break
-            case .audio(_):
+            case .audio(let audioItem):
+                let audioFileURL = audioItem.url.absoluteString
+                   message = audioFileURL
                 break
             case .contact(_):
                 break
@@ -888,6 +873,7 @@ extension DatabaseManager {
             case .custom(_):
                 break
             }
+            
             
             let conversationID = "conversation_\(firstMessage.messageId)"
             
@@ -899,7 +885,8 @@ extension DatabaseManager {
                 "latest_message": [
                     "date": dateString,
                     "message": message,
-                    "is_read": false
+                    "is_read": false,
+                    "type": firstMessage.kind.messageKindString
                 ]
             ]
             
@@ -912,7 +899,8 @@ extension DatabaseManager {
                 "latest_message": [
                     "date": dateString,
                     "message": message,
-                    "is_read": false
+                    "is_read": false,
+                    "type": firstMessage.kind.messageKindString
                 ]
             ]
             
@@ -982,15 +970,25 @@ extension DatabaseManager {
                 message = messageText
         case .attributedText(_):
             break
-        case .photo(_):
+        case .photo(let mediaItem):
+            if let targetUrlString = mediaItem.url?.absoluteString {
+                message = targetUrlString
+            }
             break
-        case .video(_):
+        case .video(let mediaItem):
+            if let targetUrlString = mediaItem.url?.absoluteString {
+                message = targetUrlString
+            }
             break
-        case .location(_):
+        case .location(let locationData):
+            let location = locationData.location
+            message = "\(location.coordinate.longitude),\(location.coordinate.latitude)"
             break
         case .emoji(_):
             break
-        case .audio(_):
+        case .audio(let audioItem):
+            let audioFileURL = audioItem.url.absoluteString
+               message = audioFileURL
             break
         case .contact(_):
             break
@@ -1082,27 +1080,22 @@ extension DatabaseManager {
                       let latestMessage = dictionary["latest_message"] as? [String: Any],
                       let date = latestMessage["date"] as? String,
                       let message = latestMessage["message"] as? String,
-                      let isRead = latestMessage["is_read"] as? Bool
+                      let isRead = latestMessage["is_read"] as? Bool,
+                      let type = latestMessage["type"] as? String
                        else {
                     return nil
                 }
                 
-                let latestMessageObject = LatestMessage(date: date, isRead: isRead, text: message)
-                
-                
+                let latestMessageObject = LatestMessage(date: date, isRead: isRead, text: message, type: LatestMessageTpyes(rawValue: type) ?? .text)
                 
                 return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, isRoomBeginIn: isRoomBeginIn, latestMessage: latestMessageObject)
             }
             
-            self.saveConversationsToCache(conversations, for: email)
+            //self.saveConversationsToCache(conversations, for: email)
             
             completion(.success(conversations))
-            
         }
-        
-        
     }
-    
     
     func videoPreviewImage(url: URL) -> UIImage? {
         let asset = AVURLAsset(url: url)
@@ -1349,7 +1342,8 @@ extension DatabaseManager {
                         let updatedValue: [String: Any] = [
                             "date": dateString,
                             "is_read": isReadDatabaseValue,
-                            "message": message
+                            "message": message,
+                            "type": newMessage.kind.messageKindString
                         ]
                         
                         if var currentUserConversations = snapshot.value as? [[String: Any]] {
@@ -1412,7 +1406,8 @@ extension DatabaseManager {
                                 let updatedValue: [String: Any] = [
                                     "date": dateString,
                                     "is_read": isReadDatabaseValue,
-                                    "message": message
+                                    "message": message,
+                                    "type": newMessage.kind.messageKindString
                                 ]
                                 
                                 guard let currentName = UserDefaults.standard.value(forKey: "name") else {

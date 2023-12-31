@@ -165,12 +165,15 @@ final class ChatViewController: MessagesViewController {
         
     }
     
+    private var lastPlayedMessageId: String?
+
     private func listeningForMessageSounds() {
         let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentSender().senderId)
         let messageRef = Database.database().reference().child(self.conversationPath).child("messages")
         // En son alınan mesajın tarihini saklayın
         messageRef.queryOrdered(byChild: "date").queryLimited(toLast: 1).observe(.childAdded) { [weak self] snapshot, _ in
             guard let self = self,
+                  let messageId = snapshot.key as? String,
                   let messageData = snapshot.value as? [String: Any],
                   let sender = messageData["sender_email"] as? String else {
                 return
@@ -182,12 +185,17 @@ final class ChatViewController: MessagesViewController {
                 return
             }
 
-            if sender == safeEmail {
-                // Gönderen, kullanıcı ise bir ses çal
-                self.playNotifSound(named: "take-headphones-out-106535")
-            } else {
-                // Gönderen, diğer kullanıcı ise başka bir ses çal
-                self.playNotifSound(named: "intuition-561")
+            if messageId != self.lastPlayedMessageId {
+                        // Mesaj daha önce çalınmadıysa
+                self.lastPlayedMessageId = messageId
+
+                if sender == safeEmail {
+                    // Gönderen, kullanıcı ise bir ses çal
+                    self.playNotifSound(named: "take-headphones-out-106535")
+                } else {
+                    // Gönderen, diğer kullanıcı ise başka bir ses çal
+                    self.playNotifSound(named: "intuition-561")
+                }
             }
         }
     }
@@ -355,7 +363,7 @@ final class ChatViewController: MessagesViewController {
     /// - It's updates and reads the user's online information.
     /// - It works as live data.
     /// - Instantly reflects online information on the screen.
-    @objc func setupOnlineState() {
+    func setupOnlineState() {
         let otherUserEm = self.otherUserEmail
         let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEm)
         
@@ -718,7 +726,89 @@ final class ChatViewController: MessagesViewController {
             audioFileName = ""
         }
     }
+    
+    private func presentLocationPicker() {
+        let vc = LocationPickerViewController(coordinates: nil)
+        vc.isPickable = true
+        vc.title = "Pick Location"
+        vc.navigationItem.largeTitleDisplayMode = .never
+        vc.completion = { [weak self] selectedCoorinates in
+            
+            guard let strongSelf = self else { return }
+            
+            guard let messageId = strongSelf.createMessageId(),
+                  let selfSender = strongSelf.selfSender else {
+                return
+            }
+            
+            let longitude: Double = selectedCoorinates.longitude
+            let latitute: Double = selectedCoorinates.latitude
+            
+            let location = Location(location:
+                                        CLLocation(latitude: latitute,
+                                                   longitude: longitude),
+                                    size: .zero)
+            
+            let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .location(location), isRead: nil)
 
+            self?.send(message: message)
+            
+        }
+        navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    private func send(message: Message) {
+        
+        guard let selfSender = self.selfSender,
+              let messageId = createMessageId() else {
+            return
+        }
+       
+        let newMessage = Message(sender: selfSender,
+                                 messageId: messageId,
+                                 sentDate: message.sentDate,
+                                 kind: message.kind,
+                                 isRead: nil)
+        
+        if isNewConversation
+        {
+            DatabaseManager.shared.createNewConversations(with: otherUserEmail, name: self.title ?? "", firstMessage: newMessage) { [weak self] success in
+                
+                guard let strongSelf = self else { return }
+                if success
+                {
+                    print("message send")
+                    strongSelf.isNewConversation = false
+                    let mewConversationId = "conversation_\(message.messageId)"
+                    strongSelf.conversationId = mewConversationId
+                    converId = mewConversationId
+                    strongSelf.dataToBeListening(id: mewConversationId, shouldScrollToBottom: true)
+                    strongSelf.messageInputBar.inputTextView.text = nil
+                }
+                else
+                {
+                    print("failed to send")
+                }
+            }
+        }
+        else
+        {
+            guard let conversationId = conversationId,
+                  let name = self.title else {
+                return
+            }
+                    
+            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: self.otherUserEmail, name: name, newMessage: newMessage) { [weak self] success in
+                if success {
+                    self?.messageInputBar.inputTextView.text = nil
+                    print("message sent")
+                } else {
+                    print("failed to send")
+                }
+            }
+        }
+    }
+    
     private func presentInputActionSheet() {
         
         let actionSheet = UIAlertController(title: "Attach Media", message: "What would you like to attach?", preferredStyle: .actionSheet)
@@ -754,46 +844,6 @@ final class ChatViewController: MessagesViewController {
         actionSheet.addAction(cancelAction)
         
         present(actionSheet, animated: true)
-    }
-    
-    private func presentLocationPicker() {
-        let vc = LocationPickerViewController(coordinates: nil)
-        vc.isPickable = true
-        vc.title = "Pick Location"
-        vc.navigationItem.largeTitleDisplayMode = .never
-        vc.completion = { [weak self] selectedCoorinates in
-            
-            guard let strongSelf = self else { return }
-            
-            guard let messageId = strongSelf.createMessageId(),
-                  let conversationId = strongSelf.conversationId,
-                  let name = strongSelf.title,
-                  let selfSender = strongSelf.selfSender else {
-                return
-            }
-            
-            let longitude: Double = selectedCoorinates.longitude
-            let latitute: Double = selectedCoorinates.latitude
-            
-            print("longitude: \(longitude)")
-            print("latitude: \(latitute)")
-            
-            let location = Location(location:
-                                        CLLocation(latitude: latitute,
-                                                   longitude: longitude),
-                                    size: .zero)
-            
-            let message = Message(sender: selfSender, messageId: messageId, sentDate: Date(), kind: .location(location), isRead: nil)
-            
-            DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message) { success in
-                if success {
-                    print("sended location")
-                } else {
-                    print("failed to send location message")
-                }
-            }
-        }
-        navigationController?.pushViewController(vc, animated: true)
     }
     
     private func presentPhotoInputActionsSheet() {
@@ -873,6 +923,28 @@ final class ChatViewController: MessagesViewController {
         present(actionSheet, animated: true)
     }
     
+    private func presentInputActionSheet(title: String, message: String, actions: [(String, UIAlertAction.Style, UIImage, UIColor, () -> Void)]) {
+        let actionSheet = UIAlertController(title: title, message: message, preferredStyle: .actionSheet)
+        
+        for (actionTitle, style, image, titleColor, handler) in actions {
+            let action = UIAlertAction(title: actionTitle, style: style) { _ in
+                handler()
+            }
+            action.setValue(image, forKey: "image")
+            action.setValue(titleColor, forKey: "titleTextColor")
+            actionSheet.addAction(action)
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let cancelImage = UIImage(systemName: "xmark")
+        cancelAction.setValue(cancelImage, forKey: "image")
+        cancelAction.setValue(UIColor.red, forKey: "titleTextColor")
+        actionSheet.addAction(cancelAction)
+        
+        present(actionSheet, animated: true)
+    }
+    
+    
     func messageBottomLabelAttributedText(for message: MessageKit.MessageType, at indexPath: IndexPath) -> NSAttributedString? {
         
         let dateString = Util.getStringFromDate(format: "HH:mm dd/MM/YYYY", date: message.sentDate)
@@ -898,7 +970,7 @@ final class ChatViewController: MessagesViewController {
         
         let font = UIFont(name: "Avenir-Medium", size: 10.0) // Özelleştirilmiş bir font oluşturun veya mevcut bir fontu kullanın
         let dateStringAttributes: [NSAttributedString.Key: Any] = [
-            .font: font, // Özelleştirilmiş fontu burada belirtin
+            .font: font as Any, // Özelleştirilmiş fontu burada belirtin
         ]
 
         let dateStringAttributedString = NSAttributedString(string: dateString, attributes: dateStringAttributes)
@@ -918,11 +990,9 @@ final class ChatViewController: MessagesViewController {
         
     }
     
-    
 }
 
 extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, MessagesLayoutDelegate {
-    
 
     func messageBottomLabelHeight(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> CGFloat {
         return 17
@@ -972,12 +1042,29 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
     func backgroundColor(for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) -> UIColor {
         let sender = message.sender
         if sender.senderId == selfSender?.senderId {
-            //mesajı gönderenin mesaj balonunun rengi
             return .link
         }
         
-        // mesajı alanın mesaj balonunun rengi
         return .secondarySystemBackground
+    }
+    
+    private func avatarCheck(userEmail: String, userPhotoUrl: URL?, avatarView: AvatarView) {
+        if var userPhotoUrlLink = userPhotoUrl {
+            avatarView.sd_setImage(with: userPhotoUrl)
+        } else {
+            let safeEmail = DatabaseManager.safeEmail(emaildAddress: userEmail)
+            let path = "images/\(safeEmail)_profile_picture.png"
+            StorageManager.shared.downloadUrl(for: path) { result in
+                switch result {
+                case .success(let url):
+                    DispatchQueue.main.async {
+                        avatarView.sd_setImage(with: url)
+                    }
+                case .failure(let error):
+                    print(error.localizedDescription)
+                }
+            }
+        }
     }
     
     func configureAvatarView(_ avatarView: AvatarView, for message: MessageType, at indexPath: IndexPath, in messagesCollectionView: MessagesCollectionView) {
@@ -985,58 +1072,14 @@ extension ChatViewController: MessagesDataSource, MessagesDisplayDelegate, Messa
         let sender = message.sender
         
         if sender.senderId == selfSender?.senderId {
-           // put avatarview sender user image
-            if let currentUserPhotoURL = self.senderUserPhotoURL {
-                avatarView.sd_setImage(with: currentUserPhotoURL)
-            } else {
-                guard let email = UserDefaults.standard.value(forKey: "email") as? String else {
-                    return
-                }
-                
-                let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-                let path = "images/\(safeEmail)_profile_picture.png"
-                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                    switch result {
-                    case .success(let url):
-                        DispatchQueue.main.async {
-                            // tekrar tekrar indirme yapmaması için böyle bir yapı kullandık
-                            self?.senderUserPhotoURL = url
-                             avatarView.sd_setImage(with: url)
-                        }
-                    case .failure(let error):
-                       // avatarView.image = UIImage(systemName: "questionmark")
-                        print(error.localizedDescription)
-                    }
-                }
-            }
+            avatarCheck(userEmail: currentSender().senderId, userPhotoUrl: senderUserPhotoURL, avatarView: avatarView)
         } else {
-            // put avatarview sender user image
             if getUserSetting(status: .other, setting: .profilePhoto) {
-                if let otherUserPhotoURL = self.otherUserPhotoURL {
-                   avatarView.sd_setImage(with: otherUserPhotoURL)
-                } else {
-                    
-                    let email = self.otherUserEmail
-                    let safeEmail = DatabaseManager.safeEmail(emaildAddress: email)
-                    let path = "images/\(safeEmail)_profile_picture.png"
-                    StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                        switch result {
-                        case .success(let url):
-                            DispatchQueue.main.async {
-                                self?.otherUserPhotoURL = url
-                                avatarView.sd_setImage(with: url)
-                            }
-                        case .failure(let error):
-                            //avatarView.image = UIImage(systemName: "questionmark")
-                            print(error.localizedDescription)
-                        }
-                    }
-               }
+                avatarCheck(userEmail: otherUserEmail, userPhotoUrl: otherUserPhotoURL, avatarView: avatarView)
+            
             } else {
                 avatarView.image = UIImage(systemName: "person.fill")
             }
-             
-                 
         }
     }
 
@@ -1084,15 +1127,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                                           sentDate: Date(),
                                           kind: .photo(media), isRead: nil)
                     
-                    DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message) { success in
-                        if success {
-                            print("sent photo message")
-                           
-                        }
-                        else {
-                            print("failed to sent photo message")
-                        }
-                    }
+                    self?.send(message: message)
                     
                     
                 case .failure(let error):
@@ -1127,15 +1162,7 @@ extension ChatViewController: UIImagePickerControllerDelegate, UINavigationContr
                                           sentDate: Date(),
                                           kind: .video(media), isRead: nil)
                     
-                    DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: strongSelf.otherUserEmail, name: name, newMessage: message) { success in
-                        if success {
-                            print("sent photo message")
-                        }
-                        else {
-                            print("failed to sent photo message")
-                        }
-                    }
-                    
+                    self?.send(message: message)
                     
                 case .failure(let error):
                     print("message video upload error: ",error.localizedDescription)
@@ -1158,66 +1185,18 @@ extension ChatViewController: InputBarAccessoryViewDelegate {
     }
     
     func inputBar(_ inputBar: InputBarAccessoryView, didPressSendButtonWith text: String) {
-        //self.playNotifSound(named: "mySended")
-        //self.playNotifSound(named: "computerwav-14702")
-        //self.playNotifSound(named: "take-headphones-out-106535")
+        
         if !isEmptyText {
-            guard !text.replacingOccurrences(of: " ", with: "").isEmpty,
-                  let selfSender = self.selfSender,
-                  let messageId = createMessageId() else {
-                return
-            }
-            let message = Message(sender: selfSender,
-                                  messageId: messageId,
-                                  sentDate: Date(),
-                                  kind: .text(text), isRead: nil)
-            
-            print("sending: \(text)")
-            
-            //Send message
-            if isNewConversation {
-                // create convo in database
-                DatabaseManager.shared.createNewConversations(with: otherUserEmail, name: self.title ?? "", firstMessage: message) { [weak self] success in
-                    if success {
-                        print("message send")
-                        self?.isNewConversation = false
-                        let mewConversationId = "conversation_\(message.messageId)"
-                        self?.conversationId = mewConversationId
-                        converId = mewConversationId
-                        self?.dataToBeListening(id: mewConversationId, shouldScrollToBottom: true)
-                        self?.messageInputBar.inputTextView.text = nil
-                    }
-                    else {
-                        print("failed to send")
-                    }
-                }
-            }
-            else {
-                
-                guard let conversationId = conversationId,
-                let name = self.title else {
-                    return
-                }
-                // append to existing conversation data
-                DatabaseManager.shared.sendMessage(to: conversationId, otherUserEmail: otherUserEmail, name: name, newMessage: message) { [weak self] success in
-                    if success {
-                        self?.messageInputBar.inputTextView.text = nil
-                        print("message sent")
-                        
-                        
-                    }
-                    else {
-                        print("failed to sent")
-                    }
-                }
-                
-                
-            }
-        }
-        else if isEmptyText {
-            // send to audio message
-            inputBar.sendButton.addGestureRecognizer(longPressGesture)
-        }
+               guard !text.replacingOccurrences(of: " ", with: "").isEmpty,
+                     let selfSender = self.selfSender else {
+                   return
+               }
+            let message = Message(sender: selfSender, messageId: createMessageId() ?? "", sentDate: Date(), kind: .text(text), isRead: nil)
+               send(message: message)
+           } else if isEmptyText {
+               // Handle sending audio message
+               inputBar.sendButton.addGestureRecognizer(longPressGesture)
+           }
         
        
     }

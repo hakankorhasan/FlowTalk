@@ -19,4 +19,12 @@ struct LatestMessage: Codable {
     let date: String
     let isRead: Bool
     let text: String
+    let type: LatestMessageTpyes
+}
+
+enum LatestMessageTpyes: String, Codable {
+    case audio
+    case photo
+    case location
+    case text
 }

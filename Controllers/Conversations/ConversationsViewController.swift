@@ -8,6 +8,7 @@
 import UIKit
 import FirebaseAuth
 import JGProgressHUD
+import FirebaseDatabase
 
 /// Controller that show list of conversations
 final class ConversationsViewController: UIViewController, UIScrollViewDelegate {
@@ -46,6 +47,10 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
     }()
     
     private var loginObserver: NSObjectProtocol?
+    
+    private var ref: DatabaseReference!
+    var handle: UInt!
+    var updateHandler: UInt!
 
     private let notificationCountLabel = UILabel()
     
@@ -215,13 +220,8 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         
         spinner.show(in: view)
         
-      /*  if let cachedConversations = DatabaseManager.shared.getAllConversationsFromCache(for: safeEmail) {
-            self.spinner.dismiss()
-            self.noConversationsLabel.isHidden = cachedConversations.isEmpty ? false : true
-            self.tableView.isHidden = cachedConversations.isEmpty ? true : false
-            self.conversations = cachedConversations
-            self.tableView.reloadData()
-        } else {*/
+     
+        
             DatabaseManager.shared.getAllConversations(for: safeEmail) { [weak self] result in
                 print(result)
                 switch result {
@@ -251,7 +251,8 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
                     print("failed to get convos: \(error)")
                 }
             }
-       // }
+      
+        
         
     }
     
@@ -445,6 +446,55 @@ extension ConversationsViewController {
         notificationCountLabel.anchor(top: notificationButton.topAnchor, leading: nil, bottom: nil, trailing: notificationButton.trailingAnchor, padding: .init(top: 6, left: 0, bottom: 0, right: 6), size: .init(width: 17, height: 17))
         
     }
+    
+    
+    
+    func setupOnlineState(otherUserEmail: String, cell: ConversationTableViewCell) {
+        let otherUserEm = otherUserEmail
+        let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEm)
+        
+        let usersRef = Database.database().reference().child("users")
+            
+        ref = usersRef
+            
+        let handleChildAdded: (DataSnapshot) -> Void = { snapshot in
+            self.handleSnapshot(snapshot, otherUserEmail: otherUserEmail, cell: cell)
+        }
+            
+        let handleChildChanged: (DataSnapshot) -> Void = { snapshot in
+            self.handleSnapshot(snapshot, otherUserEmail: otherUserEmail, cell: cell)
+        }
+            
+        handle = ref.observe(.childAdded, with: handleChildAdded)
+        updateHandler = ref.observe(.childChanged, with: handleChildChanged)
+       
+    }
+    
+    func handleSnapshot(_ snapshot: DataSnapshot, otherUserEmail: String, cell: ConversationTableViewCell) {
+        if let userData = snapshot.value as? [String: Any], let email = userData["email"] as? String {
+            if email == otherUserEmail {
+                if let isOnline = userData["isOnline"] as? Bool {
+                    self.isOnlineCheck(isOnline: isOnline, cell: cell)
+                }
+            }
+        }
+    }
+    
+    private func isOnlineCheck(isOnline: Bool, cell: ConversationTableViewCell) {
+        
+         if isOnline {
+             UIView.animate(withDuration: 0.2) {
+                // self.onlineDotView.backgroundColor = .green
+                 cell.onlineInfoButton.backgroundColor = #colorLiteral(red: 0, green: 0.9388161302, blue: 0, alpha: 1)
+             }
+         } else {
+             UIView.animate(withDuration: 0.2) {
+                 cell.onlineInfoButton.backgroundColor = .gray
+             }
+         }
+        
+    }
+    
 
 }
 
@@ -465,8 +515,10 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
             cell.backgroundColor = .white
         }
         cell.clipsToBounds = true
-        let model = conversations[indexPath.row]
         
+        let model = conversations[indexPath.row]
+        setupOnlineState(otherUserEmail: model.otherUserEmail, cell: cell)
+        print("model = ", model.otherUserEmail)
         if Network.reachability.isReachable {
             // İnternet bağlantısı var, fetch işlemini gerçekleştir
             DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) { 
@@ -478,7 +530,6 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
             cell.configure(with: model)
         }
 
-        
         return cell
     }
     
@@ -539,10 +590,12 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
 }
 
 extension UIView {
+    
    func roundCorners(corners: UIRectCorner, radius: CGFloat) {
         let path = UIBezierPath(roundedRect: bounds, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
         let mask = CAShapeLayer()
         mask.path = path.cgPath
         layer.mask = mask
     }
+    
 }

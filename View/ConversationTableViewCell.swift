@@ -15,9 +15,16 @@ class ConversationTableViewCell: UITableViewCell {
     private let userImageView: UIImageView = {
        let iv = UIImageView()
         iv.contentMode = .scaleAspectFill
-        iv.layer.cornerRadius = 36
+        iv.layer.cornerRadius = 40
         iv.layer.masksToBounds = true
         return iv
+    }()
+    
+    var onlineInfoButton: UIButton = {
+        let btn = UIButton()
+        btn.backgroundColor = #colorLiteral(red: 0, green: 0.9388161302, blue: 0, alpha: 1)
+        btn.layer.cornerRadius = 10
+        return btn
     }()
     
     private let usernameLabel: UILabel = {
@@ -69,6 +76,7 @@ class ConversationTableViewCell: UITableViewCell {
         addSubview(usernameLabel)
         addSubview(dateLabel)
         addSubview(userMessageLabel)
+        addSubview(onlineInfoButton)
     }
     
     // cell hücrelerine tabelView ın kenarlarından 15 er puanlık dolgu verdik
@@ -93,32 +101,37 @@ class ConversationTableViewCell: UITableViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        userImageView.frame = CGRect(x: 10,
-                                     y: 10,
-                                     width: 74,
-                                     height: 74)
+        userImageView.anchor(top: topAnchor, leading: leadingAnchor, bottom: bottomAnchor, trailing: nil, padding: .init(top: 10, left: 10, bottom: 10, right: 0), size: .init(width: 80, height: 80))
+        onlineInfoButton.anchor(top: nil, leading: nil, bottom: userImageView.bottomAnchor, trailing: userImageView.trailingAnchor, padding: .init(top: 0, left: 0, bottom: 2, right: 2), size: .init(width: 20, height: 20))
         
-        usernameLabel.frame = CGRect(x: userImageView.right + 10,
-                                     y: 10,
-                                     width: contentView.width - 100 - userImageView.width,
-                                     height: (contentView.height-20)/2)
+        usernameLabel.anchor(top: topAnchor, leading: userImageView.trailingAnchor, bottom: nil, trailing: nil, padding: .init(top: 5, left: 10, bottom: 0, right: 10), size: .init(width: contentView.width - 100 - userImageView.width, height: (contentView.height-20)/2))
         
-        dateLabel.frame = CGRect(x: usernameLabel.right + 10,
-                                 y: usernameLabel.center.y,
-                                 width: 60,
-                                 height: 20)
+        dateLabel.anchor(top: topAnchor, leading: usernameLabel.trailingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 10, left: 0, bottom: 0, right: 10), size: .init(width: 60, height: 20))
         
-        userMessageLabel.frame = CGRect(x: userImageView.right + 10,
-                                        y: usernameLabel.bottom,
-                                        width: contentView.width - 100 - userImageView.width,
-                                        height: (contentView.height-20)/2)
+        userMessageLabel.anchor(top: usernameLabel.bottomAnchor, leading: userImageView.trailingAnchor, bottom: bottomAnchor, trailing: trailingAnchor, padding: .init(top: 5, left: 10, bottom: 5, right: 10))
+
     }
 
     func configure(with model: Conversation) {
-        userMessageLabel.text = model.latestMessage.text
+        
         usernameLabel.text = model.name
+        
+        switch model.latestMessage.type {
+            case .audio:
+                userMessageLabel.text = "Voice 🎵"
+                    // Handle audio message logic
+            case .photo:
+                userMessageLabel.text = "Image 📷"
+                    // Handle photo message logic
+            case .location:
+                userMessageLabel.text = "Location 📍"
+                    // Handle location message logic
+            case .text:
+            userMessageLabel.text = model.latestMessage.text
+                // Handle text message logic
+        }
+        
         let date = model.latestMessage.date
-                
         let inputFormatter = DateFormatter()
         inputFormatter.dateFormat = "dd MMM yyyy 'at' HH:mm:ss 'GMT'Z"
         inputFormatter.locale = Locale(identifier: "en_US_POSIX")
@@ -139,58 +152,22 @@ class ConversationTableViewCell: UITableViewCell {
         let path = "images/\(model.otherUserEmail)_profile_picture.png"
         let cacheKey = cacheKeyPrefix + model.otherUserEmail
 
-       /* if let cachedImage = loadCacheImage(forkey: cacheKey) {
-            // Önbellekte veri var, cache'den kullan
-            let cachedName = UserDefaults.standard.string(forKey: cacheKey + "_name")
-            let cachedDate = UserDefaults.standard.string(forKey: cacheKey + "_date")
-            let cachedMessage = UserDefaults.standard.string(forKey: cacheKey + "_latest_message")
-            print("cacheden çekildi")
-            userImageView.image = cachedImage
-            usernameLabel.text = cachedName
-            userMessageLabel.text = cachedMessage
-            dateLabel.text = cachedDate
-        } else {*/
-            // Cache'de veri yok, internetten çek
-            print("Cache'de veri yok, internetten çek")
-            if getUserSetting(status: .other, setting: .profilePhoto) {
-                StorageManager.shared.downloadUrl(for: path) { [weak self] result in
-                    switch result {
-                    case .success(let url):
-                        DispatchQueue.main.async {
-                            self?.userImageView.sd_setImage(with: url)
-
-                            // Save data to cache
-                        //    self?.saveToCache(image: self?.userImageView.image, name: model.name, date: formattedDates, message: model.latestMessage.text, forkey: cacheKey)
-                        }
-                    case .failure(let error):
-                        print("failed to get image: ", error)
+       
+        print("Cache'de veri yok, internetten çek")
+        if getUserSetting(status: .other, setting: .profilePhoto) {
+            StorageManager.shared.downloadUrl(for: path) { [weak self] result in
+                switch result {
+                case .success(let url):
+                    DispatchQueue.main.async {
+                        self?.userImageView.sd_setImage(with: url)
                     }
+                case .failure(let error):
+                    print("failed to get image: ", error)
                 }
-            } else {
-                self.userImageView.image = UIImage(systemName: "person.fill")
-                self.userImageView.tintColor = .darkGray
             }
-        //}
-    }
-
-    func saveToCache(image: UIImage?, name: String, date: String, message: String, forkey key: String) {
-        UserDefaults.standard.set(name, forKey: key + "_name")
-        UserDefaults.standard.set(date, forKey: key + "_date")
-        UserDefaults.standard.set(message, forKey: key + "_latest_message")
-
-        if let image = image,
-            let imageData = image.jpegData(compressionQuality: 1.0) {
-            UserDefaults.standard.setValue(imageData, forKey: key)
-        }
-    }
-
-    func loadCacheImage(forkey key: String) -> UIImage? {
-        if let cachedImage = UserDefaults.standard.data(forKey: key),
-           let image = UIImage(data: cachedImage) {
-            return image
         } else {
-            print("No cached image or error while loading for key: \(key)")
-            return nil
+            self.userImageView.image = UIImage(systemName: "person.fill")
+            self.userImageView.tintColor = .darkGray
         }
     }
 
