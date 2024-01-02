@@ -22,10 +22,12 @@ var isOtherLastSeenInfo: Bool = true
 var blackRatioConstants: CGFloat = 0.0
 
 enum UserSetting: String {
-    case lastSeenInfo = "isOpenLastseenInfo"
-    case onlineInfo = "isOpenOnlineInfo"
-    case profilePhoto = "isHiddenPF"
-    case readReceipt = "isOpenReadInfo"
+    case lastSeenInfo = "last_seen"
+    case onlineInfo = "online_information"
+    case profilePhoto = "profile_visibility"
+    case readReceipt = "read_receipt"
+    case chatSounds = "chat_sounds"
+    case highPrioNotification = "high_priority_notf"
     
     var title: String {
         switch self {
@@ -33,6 +35,8 @@ enum UserSetting: String {
         case .onlineInfo: return "Online"
         case .profilePhoto: return "Profile photo"
         case .readReceipt: return "Read receipt"
+        case .chatSounds: return "Chat sounds"
+        case .highPrioNotification: return "High priority notifications"
         }
     }
 }
@@ -47,14 +51,18 @@ var currentSettings: [UserSetting: Bool] = [
     .onlineInfo: true,
     .readReceipt: true,
     .profilePhoto: true,
-    .lastSeenInfo: true
+    .lastSeenInfo: true,
+    .chatSounds: true,
+    .highPrioNotification: true
 ]
 
 var otherSettings: [UserSetting: Bool] = [
     .onlineInfo: true,
     .readReceipt: true,
     .profilePhoto: true,
-    .lastSeenInfo: true
+    .lastSeenInfo: true,
+    .chatSounds: true,
+    .highPrioNotification: true
 ]
 
 func setUserSetting(status: UserStatus, setting: UserSetting, value: Bool) {

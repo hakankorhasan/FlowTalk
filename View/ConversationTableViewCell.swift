@@ -27,6 +27,18 @@ class ConversationTableViewCell: UITableViewCell {
         return btn
     }()
     
+    var newWidth: CGFloat?
+    
+    var unreadedMessageButton: UIButton = {
+        let btn = UIButton()
+        btn.backgroundColor = #colorLiteral(red: 0.3739683032, green: 0.6619769931, blue: 0.0885687843, alpha: 1)
+        btn.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        btn.layer.cornerRadius = 13
+        //btn.setImage(UIImage(named: "number-2"), for: .normal)
+        // Update the width based on the number of digits in the title
+        return btn
+    }()
+        
     private let usernameLabel: UILabel = {
        let label = UILabel()
         label.font = .systemFont(ofSize: 18, weight: .semibold)
@@ -77,6 +89,7 @@ class ConversationTableViewCell: UITableViewCell {
         addSubview(dateLabel)
         addSubview(userMessageLabel)
         addSubview(onlineInfoButton)
+        addSubview(unreadedMessageButton)
     }
     
     // cell hücrelerine tabelView ın kenarlarından 15 er puanlık dolgu verdik
@@ -101,9 +114,21 @@ class ConversationTableViewCell: UITableViewCell {
     override func layoutSubviews() {
         super.layoutSubviews()
         
+        if let title = unreadedMessageButton.title(for: .normal), let numberOfDigits = Int(title) {
+            let digitCount = String(numberOfDigits).count
+            
+            if digitCount > 2 {
+                newWidth = CGFloat(20 + 14 * max(0, digitCount - 2)) // Adjust the constants as needed
+            } else {
+                newWidth = 26
+            }
+        }
+        
         userImageView.anchor(top: topAnchor, leading: leadingAnchor, bottom: bottomAnchor, trailing: nil, padding: .init(top: 10, left: 10, bottom: 10, right: 0), size: .init(width: 80, height: 80))
         onlineInfoButton.anchor(top: nil, leading: nil, bottom: userImageView.bottomAnchor, trailing: userImageView.trailingAnchor, padding: .init(top: 0, left: 0, bottom: 2, right: 2), size: .init(width: 20, height: 20))
         
+        unreadedMessageButton.anchor(top: nil, leading: nil, bottom: nil, trailing: trailingAnchor, padding: .init(top: 0, left: 0, bottom: 0, right: 10), size: .init(width: newWidth ?? 26, height: 26))
+        unreadedMessageButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor).isActive = true
         usernameLabel.anchor(top: topAnchor, leading: userImageView.trailingAnchor, bottom: nil, trailing: nil, padding: .init(top: 5, left: 10, bottom: 0, right: 10), size: .init(width: contentView.width - 100 - userImageView.width, height: (contentView.height-20)/2))
         
         dateLabel.anchor(top: topAnchor, leading: usernameLabel.trailingAnchor, bottom: nil, trailing: trailingAnchor, padding: .init(top: 10, left: 0, bottom: 0, right: 10), size: .init(width: 60, height: 20))

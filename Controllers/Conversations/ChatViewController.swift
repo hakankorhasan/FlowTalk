@@ -319,12 +319,15 @@ final class ChatViewController: MessagesViewController {
     override func viewWillAppear(_ animated: Bool) {
         
         DatabaseManager.shared.fetchUserSettings(safeEmail: otherUserEmail, isCurrentUser: false) {
+            
             if getUserSetting(status: .other, setting: .onlineInfo) {
+                
                 self.onlineDotView.isHidden = false
-                //self.onlineTextLabel.isHidden = false
+                
             } else {
+                
                 self.onlineDotView.isHidden = true
-               // self.onlineTextLabel.isHidden = true
+                
             }
             
             if getUserSetting(status: .other, setting: .profilePhoto) {
@@ -347,11 +350,13 @@ final class ChatViewController: MessagesViewController {
             if snapshot.exists() {
                 // Belirtilen çocuk düğüm mevcut
                 print("Belirtilen çocuk düğüm mevcut.")
+                self.makeRead()
             } else {
                 // Belirtilen çocuk düğüm mevcut değil
                 print("Belirtilen çocuk düğüm mevcut değil.")
                 self.conversationPath = "conversation_From\(safeOther)_Tomk\(safeEmail)"
                 print("conversationPath: ", self.conversationPath)
+                self.makeRead()
 
             }
         }
@@ -395,6 +400,29 @@ final class ChatViewController: MessagesViewController {
         }
         
         readUpdateHandler = readRef.observe(.childChanged, with: readChildChanged)
+    }
+    
+    private func makeRead() {
+        let messageRef = Database.database().reference().child(self.conversationPath).child("messages")
+        
+        let safeOtherEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+        
+        messageRef.observeSingleEvent(of: .value) { snapshot in
+            
+            if let messagesData = snapshot.value as? [[String: Any]] {
+                var count = 0
+                for messagesData in messagesData {
+                    count += 1
+                    if let messageSenderEmail = messagesData["sender_email"] as? String,
+                       let isMessageRead = messagesData["is_read"] as? Bool,
+                       messageSenderEmail == safeOtherEmail,
+                       isMessageRead == false  {
+                        let messageReadRef = messageRef.child("\(count-1)").child("is_read")
+                        messageReadRef.setValue(true)
+                    }
+                }
+            }
+        }
     }
     
     private func isReadCheckMessage(_ snapshot: DataSnapshot, refrence: DatabaseReference) {

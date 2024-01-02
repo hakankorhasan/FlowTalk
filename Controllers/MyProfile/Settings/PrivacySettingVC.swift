@@ -111,7 +111,6 @@ class PrivacySettingVC: UIViewController {
                 }
             }
         }
-        
     }
     
     private func createTableHeader() -> UIView? {

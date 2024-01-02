@@ -26,6 +26,8 @@ class DatabaseManager {
     let readInfo = getUserSetting(status: .current, setting: .readReceipt)
     let onlineInfo = getUserSetting(status: .current, setting: .onlineInfo)
     let profilePhoto = getUserSetting(status: .current, setting: .profilePhoto)
+    let chatSounds = getUserSetting(status: .current, setting: .chatSounds)
+    let highPriNotf = getUserSetting(status: .current, setting: .highPrioNotification)
     
     static func safeEmail(emaildAddress: String) -> String {
         var safeEmail = emaildAddress.replacingOccurrences(of: ".", with: "-")
@@ -94,6 +96,8 @@ extension DatabaseManager {
         let readInfo = getUserSetting(status: .current, setting: .readReceipt)
         let onlineInfo = getUserSetting(status: .current, setting: .onlineInfo)
         let profilePhoto = getUserSetting(status: .current, setting: .profilePhoto)
+        let chatSounds = getUserSetting(status: .current, setting: .chatSounds)
+        let highPriNot = getUserSetting(status: .current, setting: .highPrioNotification)
         
         database.child(user.safeEmail).updateChildValues([
             "first_name": user.firstName,
@@ -104,16 +108,12 @@ extension DatabaseManager {
             "phone_number": user.phoneNumber,
             "user_password": user.password,
             "user_settings": [
-                "isOpenReadInfo": lastSeen,
-                "isOpenLastseenInfo": readInfo,
-                "isHiddenPF": profilePhoto,
-                "isOpenOnlineInfo": onlineInfo,
-            ],
-            "friends": [
-                "friend_email": user.friends
-            ],
-            "friendship_requests": [
-                "request_email": user.requests
+                "read_receipt": lastSeen,
+                "last_seen": readInfo,
+                "profile_visibility": profilePhoto,
+                "online_information": onlineInfo,
+                "chat_sounds": chatSounds,
+                "high_priority_notf": highPriNot
             ]
         ]) { [weak self] error, _ in
              
@@ -152,16 +152,12 @@ extension DatabaseManager {
                                 "phone_number": user.phoneNumber,
                                 "user_password": user.password,
                                 "user_settings": [
-                                    "isOpenReadInfo": readInfo,
-                                    "isOpenLastseenInfo": lastSeen,
-                                    "isHiddenPF": profilePhoto,
-                                    "isOpenOnlineInfo": onlineInfo,
-                                ],
-                                "friends": [
-                                    "friend_email": user.friends
-                                ],
-                                "friendship_requests": [
-                                    "request_email": user.requests
+                                    "read_receipt": readInfo,
+                                    "last_seen": lastSeen,
+                                    "profile_visibility": profilePhoto,
+                                    "online_info": onlineInfo,
+                                    "chat_sounds": chatSounds,
+                                    "high_priority_notf": highPriNot
                                 ]
                             ]
                             break
@@ -200,16 +196,12 @@ extension DatabaseManager {
             "phone_number": user.phoneNumber,
             "user_password": user.password,
             "user_settings": [
-                "isOpenReadInfo": readInfo,
-                "isOpenLastseenInfo": lastSeen,
-                "isHiddenPF": profilePhoto,
-                "isOpenOnlineInfo": onlineInfo,
-            ],
-            "friends": [
-                "friend_email": user.friends
-            ],
-            "friendship_requests": [
-                "request_email": user.requests
+                "read_receipt": readInfo,
+                "last_seen": lastSeen,
+                "profile_visibility": profilePhoto,
+                "online_information": onlineInfo,
+                "chat_sounds": chatSounds,
+                "high_priority_notf": highPriNotf
             ]
         ]) { [weak self] error, _ in
             
@@ -243,16 +235,12 @@ extension DatabaseManager {
                             "phone_number": user.phoneNumber,
                             "user_password": user.password,
                             "user_settings": [
-                                "isOpenReadInfo": self?.readInfo,
-                                "isOpenLastseenInfo": self?.lastSeen,
-                                "isHiddenPF": self?.profilePhoto,
-                                "isOpenOnlineInfo": self?.onlineInfo,
-                            ],
-                            "friends": [
-                                "friend_email": user.friends
-                            ],
-                            "friendship_requests": [
-                                "request_email": user.requests
+                                "read_receipt": self?.readInfo,
+                                "last_seen": self?.lastSeen,
+                                "profile_visibility": self?.profilePhoto,
+                                "online_information": self?.onlineInfo,
+                                "chat_sounds": self?.chatSounds,
+                                "high_priority_notf": self?.highPriNotf
                             ]
                         ]
                     ]
@@ -278,16 +266,12 @@ extension DatabaseManager {
                             "phone_number": user.phoneNumber,
                             "user_password": user.password,
                             "user_settings": [
-                                "isOpenReadInfo": self?.readInfo,
-                                "isOpenLastseenInfo": self?.lastSeen,
-                                "isHiddenPF": self?.profilePhoto,
-                                "isOpenOnlineInfo": self?.onlineInfo,
-                            ],
-                            "friends": [
-                                "friend_email": user.friends
-                            ],
-                            "friendship_requests": [
-                                "request_email": user.requests
+                                "read_receipt": self?.readInfo,
+                                "last_seen": self?.lastSeen,
+                                "profile_visibility": self?.profilePhoto,
+                                "online_information": self?.onlineInfo,
+                                "chat_sounds": self?.chatSounds,
+                                "high_priority_notf": self?.highPriNotf
                             ]
                         ]
                     ]
@@ -323,7 +307,9 @@ extension DatabaseManager {
                     continue
                 }
                 
-                let settings: [UserSetting] = [.lastSeenInfo, .onlineInfo, .profilePhoto, .readReceipt]
+                let settings: [UserSetting] = [.lastSeenInfo, .onlineInfo,
+                                               .profilePhoto, .readReceipt,
+                                               .chatSounds, .highPrioNotification]
                 
                 let status: UserStatus = isCurrentUser ? .current : .other
                 
@@ -909,7 +895,7 @@ extension DatabaseManager {
                 if var conversations = snapshot.value as? [[String: Any]] {
                     //append
                     conversations.append(recipient_newConversationsData)
-                    self?.database.child("\(otherUserEmail)/conversations").setValue(conversationID)
+                    self?.database.child("\(otherUserEmail)/conversations").setValue(conversations)
                 } else {
                     // create conversations
                     self?.database.child("\(otherUserEmail)/conversations").setValue([recipient_newConversationsData])

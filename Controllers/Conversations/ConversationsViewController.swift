@@ -48,6 +48,8 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
     
     private var loginObserver: NSObjectProtocol?
     
+    private var conversationPath = ""
+
     private var ref: DatabaseReference!
     var handle: UInt!
     var updateHandler: UInt!
@@ -191,7 +193,7 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
         // Value of difference between icons for large and small states
         let sizeDiff = Const.ImageSizeForLargeState * (1.0 - factor) // 8.0
         let yTranslation: CGFloat = {
-            /// This value = 14. It equals to difference of 12 and 6 (bottom margin for large and small states). Also it adds 8.0 (size difference when the image gets smaller size)
+            
             let maxYTranslation = Const.ImageBottomMarginForLargeState - Const.ImageBottomMarginForSmallState + sizeDiff
             return max(0, min(maxYTranslation, (maxYTranslation - coeff * (Const.ImageBottomMarginForSmallState + sizeDiff))))
         }()
@@ -238,7 +240,6 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
                     self?.tableView.isHidden = false
                     self?.conversations = conversations
                     
-                  //  DatabaseManager.shared.saveConversationsToCache(conversations, for: safeEmail)
                     
                     DispatchQueue.main.async {
                         self?.tableView.reloadData()
@@ -388,7 +389,6 @@ final class ConversationsViewController: UIViewController, UIScrollViewDelegate 
             }
         }
         
-        
     }
     
     
@@ -418,7 +418,6 @@ extension ConversationsViewController {
         guard let navigationBar = self.navigationController?.navigationBar else { return }
         navigationBar.addSubview(plusButton)
         navigationBar.addSubview(notificationButton)
-      //  plusButton.layer.cornerRadius = Const.ImageSizeForLargeState / 2
         
         plusButton.clipsToBounds = true
         plusButton.translatesAutoresizingMaskIntoConstraints = false
@@ -447,12 +446,10 @@ extension ConversationsViewController {
         
     }
     
-    
-    
     func setupOnlineState(otherUserEmail: String, cell: ConversationTableViewCell) {
         let otherUserEm = otherUserEmail
         let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEm)
-        
+       
         let usersRef = Database.database().reference().child("users")
             
         ref = usersRef
@@ -477,6 +474,41 @@ extension ConversationsViewController {
                     self.isOnlineCheck(isOnline: isOnline, cell: cell)
                 }
             }
+        }
+    }
+    
+    func unreadedMessageCount(converId: String, otherUserEmail: String, cell: ConversationTableViewCell) {
+        
+        let otherUserSafeEmail = DatabaseManager.safeEmail(emaildAddress: otherUserEmail)
+       
+        let messagePath = converId
+        
+        let messageRef = Database.database().reference().child(messagePath).child("messages")
+        
+        messageRef.observeSingleEvent(of: .value) { snapshot in
+            
+            if let messagesData = snapshot.value as? [[String: Any]] {
+                var unreadMsgCount = 0
+                for messagesData in messagesData {
+                    
+                    if let messageSenderEmail = messagesData["sender_email"] as? String,
+                       let isMessageRead = messagesData["is_read"] as? Bool,
+                       messageSenderEmail == otherUserSafeEmail,
+                       isMessageRead == false  {
+                        unreadMsgCount += 1
+                    }
+                }
+                
+                if unreadMsgCount == 0 {
+                    cell.unreadedMessageButton.isHidden = true
+                } else {
+                    cell.unreadedMessageButton.isHidden = false
+                    cell.unreadedMessageButton.setTitle(String(unreadMsgCount), for: .normal)
+                }
+                print("unreaded message count \(unreadMsgCount)")
+            }
+            
+           
         }
     }
     
@@ -507,18 +539,13 @@ extension ConversationsViewController: UITableViewDelegate, UITableViewDataSourc
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: ConversationTableViewCell.identifier, for: indexPath) as! ConversationTableViewCell
         
-        if traitCollection.userInterfaceStyle == .dark {
-            // Koyu modda background rengini dark gray olarak ayarla
-            cell.backgroundColor = UIColor(#colorLiteral(red: 0.1098036841, green: 0.1098041013, blue: 0.1183908954, alpha: 1))
-        } else {
-            // Parlak modda background rengini belirlediğiniz renk olarak ayarla
-            cell.backgroundColor = .white
-        }
+        cell.backgroundColor = .white
         cell.clipsToBounds = true
         
         let model = conversations[indexPath.row]
         setupOnlineState(otherUserEmail: model.otherUserEmail, cell: cell)
-        print("model = ", model.otherUserEmail)
+        unreadedMessageCount(converId: model.id, otherUserEmail: model.otherUserEmail, cell: cell)
+        
         if Network.reachability.isReachable {
             // İnternet bağlantısı var, fetch işlemini gerçekleştir
             DatabaseManager.shared.fetchUserSettings(safeEmail: model.otherUserEmail, isCurrentUser: false) { 
