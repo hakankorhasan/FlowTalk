@@ -127,6 +127,14 @@ final class ChatViewController: MessagesViewController {
         
         setupTrashAnimation()
        
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(tappedUserImg))
+        userImageView.isUserInteractionEnabled = true
+        userImageView.addGestureRecognizer(gesture)
+    }
+    
+    @objc private func tappedUserImg() {
+        let profileContr = ProfilePageController()
+        self.navigationController?.pushViewController(profileContr, animated: true)
     }
     
     @objc private func handleBack() {
