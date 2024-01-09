@@ -145,7 +145,6 @@ extension InviteFriendViewController: UITableViewDelegate, UITableViewDataSource
         let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
         
         cell.configure(with: model, inController: .inviteFriendsController)
-
         cell.sendRequestButtonHandler = {
             let otherUserEmail = model.email
             
@@ -173,6 +172,13 @@ extension InviteFriendViewController: UITableViewDelegate, UITableViewDataSource
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 90
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let profileContr = ProfilePageController(currentUserEmail: self.safeEmail ?? "", otherUserEmail: results[indexPath.row].email, profileState: .inviteFriends)
+        
+        let controller = UINavigationController(rootViewController: profileContr)
+        self.present(controller, animated: true)
     }
 }
 

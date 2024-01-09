@@ -15,6 +15,7 @@ class NewConversationCell: UITableViewCell {
     var sendRequestButtonHandler: (()->())?
     var acceptButtonHandler: (()->())?
     var declineButtonHandler: (()->())?
+    var messageButtonHandler: (()->())?
     
     private let userImageView: UIImageView = {
        let iv = UIImageView()
@@ -45,7 +46,7 @@ class NewConversationCell: UITableViewCell {
         return btn
     }()
     
-     let sendMessageButton: UIButton = {
+     public let sendMessageButton: UIButton = {
         let btn = UIButton(type: .system)
         return btn
     }()
@@ -107,6 +108,7 @@ class NewConversationCell: UITableViewCell {
         sendMessageButton.tintColor = .white
         sendMessageButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
         sendMessageButton.clipsToBounds = true
+        sendMessageButton.addTarget(self, action: #selector(handleMessage), for: .touchUpInside)
         
         userImageView.anchor(top: topAnchor, leading: leadingAnchor, bottom: nil, trailing: nil, padding: .init(top: 10, left: 10, bottom: 0, right: 0), size: .init(width: 64, height: 64))
         usernameLabel.anchor(top: userImageView.topAnchor, leading: userImageView.trailingAnchor, bottom: nil, trailing: nil, padding: .init(top: 0, left: 15, bottom: 0, right: 0), size: .init(width: contentView.width - 20 - userImageView.width, height: 36))
@@ -122,6 +124,11 @@ class NewConversationCell: UITableViewCell {
     @objc func handleRequest() {
         sendRequestButtonHandler?()
     }
+    
+    @objc func handleMessage() {
+        messageButtonHandler?()
+    }
+    
     
     @objc func handleDecline() {
         declineButtonHandler?()

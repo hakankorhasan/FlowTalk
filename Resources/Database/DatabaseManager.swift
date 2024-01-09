@@ -605,6 +605,33 @@ extension DatabaseManager {
         
     }
     
+    public func fetchUserInformation(otherUserEmail: String, completion: @escaping (Result<[String: Any], Error>) -> Void) {
+        
+        let usersRef = database.child("users")
+        
+        usersRef.observeSingleEvent(of: .value) { snapshot in
+            
+            guard let userData = snapshot.value as? [[String: Any]] else {
+                return
+            }
+            
+            guard let findUserId = self.findUserId(for: otherUserEmail, in: userData) else {
+                return
+            }
+            
+            let desiredUser = usersRef.child(findUserId)
+            
+            desiredUser.observeSingleEvent(of: .value) { desiredSnapshot in
+                
+                guard let desiredUserData = desiredSnapshot.value as? [String: Any] else {
+                    return
+                }
+                
+                completion(.success(desiredUserData))
+            }
+        }
+    }
+    
     
     public func sendFriendsRequest(currentUserEmail: String,
                                    currentUserName: String,

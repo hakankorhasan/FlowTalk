@@ -172,10 +172,14 @@ extension NewConversationsViewController: UITableViewDelegate, UITableViewDataSo
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        if segmentedControl.selectedSegmentIndex == 0 
+        if segmentedControl.selectedSegmentIndex == 0
         {
             let model = resultsFriends[indexPath.row]
             let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
+            cell.selectionStyle = .none
+            cell.messageButtonHandler = {
+                self.messageButton(tableView, selectedRow: indexPath)
+            }
             //cell.textLabel?.text = results[indexPath.row].name
             cell.configureForFriends(with: model, inController: .newConversationController)
             return cell
@@ -184,15 +188,18 @@ extension NewConversationsViewController: UITableViewDelegate, UITableViewDataSo
         {
             let model = resultsSearch[indexPath.row]
             let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
+            cell.selectionStyle = .none
             //cell.textLabel?.text = results[indexPath.row].name
+            cell.messageButtonHandler = {
+                self.messageButton(tableView, selectedRow: indexPath)
+            }
             cell.configure(with: model, inController: .newConversationController)
             return cell
         }
 
     }
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        
+    func messageButton(_ tableView: UITableView, selectedRow indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         // start conversation
         if segmentedControl.selectedSegmentIndex == 0
@@ -211,6 +218,10 @@ extension NewConversationsViewController: UITableViewDelegate, UITableViewDataSo
                 self?.completionForSearch?(targetUserData)
             }
         }
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    
         
     }
     

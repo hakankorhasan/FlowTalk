@@ -133,7 +133,7 @@ final class ChatViewController: MessagesViewController {
     }
     
     @objc private func tappedUserImg() {
-        let profileContr = ProfilePageController()
+        let profileContr = ProfilePageController(currentUserEmail: currentSender().senderId, otherUserEmail: otherUserEmail, profileState: .alreadyFriends)
         self.navigationController?.pushViewController(profileContr, animated: true)
     }
     
