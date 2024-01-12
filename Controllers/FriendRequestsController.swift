@@ -131,7 +131,7 @@ extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: NewConversationCell.identifier, for: indexPath) as! NewConversationCell
         //cell.textLabel?.text = results[indexPath.row].name
         let model = friendshipRequests[indexPath.row]
-        
+        cell.selectionStyle = .none
         cell.acceptButtonHandler = {
             let otherUserEmail = model.email
             let otherUsername = model.name
@@ -154,7 +154,7 @@ extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
         cell.declineButtonHandler = {
             let otherUserEmail = model.email
            
-            DatabaseManager.shared.deleteRequest(for: self.safeEmail ?? "", targetUserEmail: otherUserEmail) { success in
+            DatabaseManager.shared.deleteAndCancelRequest(for: self.safeEmail ?? "", targetUserEmail: otherUserEmail, isDelete: true) { success in
                 if success {
                     if let index = self.friendshipRequests.firstIndex(where: { $0.email == otherUserEmail }) {
                         
@@ -170,6 +170,20 @@ extension FriendRequestsController: UITableViewDelegate, UITableViewDataSource {
         cell.configureForFriends(with: model, inController: .friendViewController)
         
         return cell
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
+        
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        
+       
+        
+        let pController = ProfilePageController(currentUserEmail: currentUserEmail, otherUserEmail: friendshipRequests[indexPath.row].email, profileState: .incominRequests)
+        self.navigationController?.pushViewController(pController, animated: true)
     }
 }
 

@@ -221,8 +221,23 @@ extension NewConversationsViewController: UITableViewDelegate, UITableViewDataSo
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-    
+       
+        guard let currentUserEmail = UserDefaults.standard.value(forKey: "email") as? String else {
+            return
+        }
         
+        let safeEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        
+        if segmentedControl.selectedSegmentIndex == 0 {
+            
+            let profileContr = ProfilePageController(currentUserEmail: safeEmail, otherUserEmail: resultsFriends[indexPath.row].email, profileState: .alreadyFriends)
+            self.navigationController?.pushViewController(profileContr, animated: true)
+            
+        } else {
+            
+            let profileContr = ProfilePageController(currentUserEmail: safeEmail, otherUserEmail: resultsSearch[indexPath.row].email, profileState: .alreadyFriends)
+            self.navigationController?.pushViewController(profileContr, animated: true)
+        }
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {

@@ -429,7 +429,7 @@ extension DatabaseManager {
         }
     }
     
-    public func deleteRequest(for currentUserEmail: String, targetUserEmail: String, completion: @escaping (Bool) -> Void) {
+    public func deleteAndCancelRequest(for currentUserEmail: String, targetUserEmail: String, isDelete: Bool, completion: @escaping (Bool) -> Void) {
         
         let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
         let safeTargetEmail = DatabaseManager.safeEmail(emaildAddress: targetUserEmail)
@@ -450,14 +450,55 @@ extension DatabaseManager {
                 completion(false)
                 return
             }
-            let currentIncomingRef = usersRef.child(currentId).child("incoming_requests")
-            let targetSendedRef = usersRef.child(targetId).child("sended_requests")
             
-            removeFriendRequest(currentIncomingRef, email: safeTargetEmail) { success in
+            let currentRef = isDelete ?
+            usersRef.child(currentId).child("incoming_requests") : usersRef.child(currentId).child("sended_requests")
+            
+            
+            let targetRef = isDelete ? usersRef.child(targetId).child("sended_requests") : usersRef.child(targetId).child("incoming_requests")
+            
+            removeFriendRequest(currentRef, email: safeTargetEmail) { success in
                 completion(success)
             }
             
-            removeFriendRequest(targetSendedRef, email: safeCurrentEmail) { success in
+            removeFriendRequest(targetRef, email: safeCurrentEmail) { success in
+                completion(success)
+            }
+        }
+       
+    }
+    
+    public func deleteFriends(for currentUserEmail: String, targetUserEmail: String, completion: @escaping (Bool) -> Void) {
+        
+        let safeCurrentEmail = DatabaseManager.safeEmail(emaildAddress: currentUserEmail)
+        let safeTargetEmail = DatabaseManager.safeEmail(emaildAddress: targetUserEmail)
+        let usersRef = database.child("users")
+        
+        usersRef.observeSingleEvent(of: .value) { [self] snapshot in
+            
+            guard let usersValue = snapshot.value as? [[String: Any]] else {
+                print("Unexpected data format in 'users' collection")
+                completion(false)
+                return
+            }
+            
+            let currentUserId = self.findUserId(for: safeCurrentEmail, in: usersValue)
+            let targetUserId = self.findUserId(for: targetUserEmail, in: usersValue)
+            
+            guard let currentId = currentUserId, let targetId = targetUserId else {
+                completion(false)
+                return
+            }
+            
+            let currentRef = usersRef.child(currentId).child("friends")
+            
+            let targetRef = usersRef.child(targetId).child("friends")
+            
+            removeFriendRequest(currentRef, email: safeTargetEmail) { success in
+                completion(success)
+            }
+            
+            removeFriendRequest(targetRef, email: safeCurrentEmail) { success in
                 completion(success)
             }
         }
@@ -797,6 +838,44 @@ extension DatabaseManager {
     
         }
         
+    }
+    
+    public func isSentRequest(currentUserEmail: String, otherUserEmail: String, completion: @escaping (Bool) -> Void) {
+        let usersRef = database.child("users")
+        
+        usersRef.observeSingleEvent(of: .value) { snapshot in
+            
+            guard let usersValue = snapshot.value as? [[String: Any]] else {
+                completion(false)
+                return
+            }
+            
+            guard let userId = self.findUserId(for: currentUserEmail, in: usersValue) else {
+                completion(false)
+                return
+            }
+            
+            let currUserRef = usersRef.child(userId).child("sended_requests")
+            
+            currUserRef.observeSingleEvent(of: .value) { requestSnapshot in
+                
+                guard let requestData = requestSnapshot.value as? [[String: Any]] else {
+                    completion(false)
+                    return
+                }
+                
+                for (index, userData) in requestData.enumerated() {
+                    if let email = userData["email"] as? String,
+                       email == otherUserEmail {
+                        completion(true)
+                        break
+                    }
+                }
+            }
+        
+        }
+        
+        completion(false)
     }
     
     private func findUserId(for email: String, in users: [[String: Any]]) -> String? {

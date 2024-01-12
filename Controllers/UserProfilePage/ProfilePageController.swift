@@ -64,6 +64,8 @@ class ProfilePageController: UIViewController {
     private var currentUserEmail: String
     private var otherUserEmail: String
     
+    private var isSent = false
+    
     public var profileState: ProfileState
     
     init(currentUserEmail: String, otherUserEmail: String, profileState: ProfileState) {
@@ -150,10 +152,18 @@ class ProfilePageController: UIViewController {
         case .alreadyFriends:
             configureForFriend()
         case .incominRequests:
-            print("incoming")//configureAcceptButton()
+            configureIncomingReq()
         case .sendedRequests:
             print("sended")
         }
+    }
+    
+    private func configureIncomingReq() {
+        voiceCallButton.isHidden = true
+        videoCallButton.isHidden = true
+        messageButton.isHidden = true
+        
+        followButton.setTitle("Accept the request", for: .normal)
     }
     
     private func configureForInvite() {
@@ -161,11 +171,22 @@ class ProfilePageController: UIViewController {
         videoCallButton.isHidden = true
         messageButton.isHidden = true
         backButton.isHidden = true
-        followButton.setTitle("Follow", for: .normal)
+        
+        DatabaseManager.shared.isSentRequest(currentUserEmail: currentUserEmail, otherUserEmail: otherUserEmail) { success in
+            if success {
+                self.followButton.setTitle("Response awaited", for: .normal)
+                self.isSent = true
+            } else {
+                self.followButton.setTitle("Follow", for: .normal)
+                self.isSent = false
+            }
+        }
+        
     }
     
     private func configureForFriend() {
         followButton.setTitle("Unfollow", for: .normal)
+        
     }
     
     private func buttonsUI() {
@@ -195,28 +216,63 @@ class ProfilePageController: UIViewController {
         
         followButton.widthAnchor.constraint(equalTo: messageButton.widthAnchor).isActive = true
         
-        
     }
     
     @objc private func handleUnf() {
         
+        guard let currentName = UserDefaults.standard.value(forKey: "name") as? String else {
+            return
+        }
+        
         if profileState == .inviteFriends {
-            followButton.setTitle("Response awaited", for: .normal)
-            /*DatabaseManager.shared.sendFriendsRequest(currentUserEmail: , currentUserName: , targetUserEmail: , completion: T##(Bool, Bool) -> Void)*/
+            
+            if isSent {
+                
+                DatabaseManager.shared.deleteAndCancelRequest(for: currentUserEmail, targetUserEmail: otherUserEmail, isDelete: false) { succs in
+                    if succs {
+                        self.followButton.setTitle("Follow", for: .normal)
+                        self.isSent = false
+                    }
+                    
+                }
+                
+            } else {
+                
+                DatabaseManager.shared.sendFriendsRequest(currentUserEmail: currentUserEmail, currentUserName: currentName, targetUserEmail: otherUserEmail) { success, isAlreadySent in
+                    if success {
+                        self.followButton.setTitle("Response awaited", for: .normal)
+                        self.isSent = true
+                    }
+                }
+                
+            }
+            
         } else if profileState == .alreadyFriends {
+            
             self.messageButton.isHidden = true
             self.lineView.isHidden = true
             
             UIView.animate(withDuration: 0.5, animations: {
                    // followButton'ın yeni konumu
-                
                 self.followButton.setTitle("Follow", for: .normal)
                 self.followButton.backgroundColor = #colorLiteral(red: 0.2253842354, green: 0.2760212123, blue: 0.3178661764, alpha: 1)
                 self.followButton.center.x += self.view.frame.width / 2
-                //self.followButton.centerXAnchor.constraint(equalTo: self.view.centerXAnchor).isActive = true
-                //self.followButton.center.x = self.view.center.x
                 
             })
+            
+            DatabaseManager.shared.deleteFriends(for: currentUserEmail, targetUserEmail: otherUserEmail) { success in
+                if success {
+                    self.configureForInvite()
+                } else {
+                    
+                }
+            }
+        } else if profileState == .incominRequests {
+            
+            self.messageButton.isHidden = false
+            self.videoCallButton.isHidden = false
+            self.voiceCallButton.isHidden = false
+            print("istek kabul edildi")
         }
     }
     
@@ -256,7 +312,7 @@ class ProfilePageController: UIViewController {
         imageView.anchor(top: view.topAnchor, leading: view.leadingAnchor, bottom: nil, trailing: view.trailingAnchor, size: .init(width: view.width, height: view.height/4))
         imageView.alpha = 0.7
         
-       
+        
         backButton.backgroundColor = #colorLiteral(red: 0.2253842354, green: 0.2760212123, blue: 0.3178661764, alpha: 1)
         backButton.layer.cornerRadius = 8
         backButton.setImage(UIImage(systemName: "chevron.left"), for: .normal)
@@ -265,7 +321,7 @@ class ProfilePageController: UIViewController {
         backButton.tintColor = .white
         
         view.addSubview(backButton)
-        backButton.anchor(top: imageView.topAnchor, leading: imageView.leadingAnchor, bottom: nil, trailing: nil, padding: .init(top: 60, left: 20, bottom: 0, right: 0), size: .init(width: 40, height: 40))
+        backButton.anchor(top: imageView.topAnchor, leading: imageView.leadingAnchor, bottom: nil, trailing: nil, padding: .init(top: 40, left: 20, bottom: 0, right: 0), size: .init(width: 40, height: 40))
         
     }
     
